@@ -1,21 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { CustomAlert as Alert } from '../utils/alert';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 import { useAuthStore } from '../store/useAuthStore';
 import { deriveKey } from '../services/cryptoService';
 import { Buffer } from 'buffer';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 interface Props {
   visible: boolean;
   title?: string;
+  forcePassword?: boolean;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
-export function ActionAuthModal({ visible, title = 'Authenticate', onSuccess, onCancel }: Props) {
+export function ActionAuthModal({ visible, title = 'Authenticate', forcePassword = false, onSuccess, onCancel }: Props) {
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isBiometricPromptActiveUI, setIsBiometricPromptActiveUI] = useState(false);
   const { mek } = useAuthStore();
@@ -23,11 +26,15 @@ export function ActionAuthModal({ visible, title = 'Authenticate', onSuccess, on
   useEffect(() => {
     if (visible) {
       setPassword('');
+      setIsBiometricPromptActiveUI(false);
+      setIsProcessing(false);
       checkBiometrics();
     }
   }, [visible]);
 
   const checkBiometrics = async () => {
+    if (forcePassword) return;
+    
     const hasMek = await SecureStore.getItemAsync('has_biometric_mek');
     if (hasMek === 'true') {
       setIsBiometricPromptActiveUI(true);
@@ -36,6 +43,7 @@ export function ActionAuthModal({ visible, title = 'Authenticate', onSuccess, on
         const result = await LocalAuthentication.authenticateAsync({
           promptMessage: title,
           fallbackLabel: 'Use Master Password',
+          disableDeviceFallback: true,
         });
         if (result.success) {
           onSuccess();
@@ -83,29 +91,38 @@ export function ActionAuthModal({ visible, title = 'Authenticate', onSuccess, on
 
   return (
     <Modal visible={visible} animationType="fade" transparent>
-      <View className="flex-1 bg-black/80 justify-center p-6">
-        <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-          {isBiometricPromptActiveUI ? (
-            <View className="items-center justify-center py-6">
-              <ActivityIndicator size="large" color="#3B82F6" />
-              <Text className="text-zinc-400 mt-6 font-semibold">Waiting for Biometrics...</Text>
-            </View>
-          ) : (
+      <KeyboardAvoidingView 
+        behavior="padding" 
+        className="flex-1"
+      >
+        <View className="flex-1 bg-black/80 justify-center p-6">
+          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
             <>
               <Text className="text-xl font-bold text-white mb-2">{title}</Text>
               <Text className="text-zinc-400 mb-6">Enter your Master Password to proceed.</Text>
               
-              <TextInput
-                className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl mb-6"
-                placeholder="Master Password"
-                placeholderTextColor="#52525B"
-                secureTextEntry
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                onSubmitEditing={handlePasswordSubmit}
-                autoFocus
-              />
+              <View className="mb-6 relative justify-center">
+                <TextInput
+                  className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl pr-12"
+                  placeholder="Master Password"
+                  placeholderTextColor="#52525B"
+                  secureTextEntry={!showPassword}
+                  value={password}
+                  onChangeText={setPassword}
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  importantForAutofill="no"
+                  textContentType="none"
+                  onSubmitEditing={handlePasswordSubmit}
+                  autoFocus
+                />
+                <TouchableOpacity 
+                  className="absolute right-4"
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff color="#9CA3AF" size={24} /> : <Eye color="#9CA3AF" size={24} />}
+                </TouchableOpacity>
+              </View>
               
               <View className="flex-row gap-4 space-x-4">
                 <TouchableOpacity 
@@ -128,9 +145,9 @@ export function ActionAuthModal({ visible, title = 'Authenticate', onSuccess, on
                 </TouchableOpacity>
               </View>
             </>
-          )}
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Switch, KeyboardAvoidingView, Platform } from 'react-native';
 import { CustomAlert as Alert } from '../../utils/alert';
-import { LogOut, Download, Upload, Cloud, Plus } from 'lucide-react-native';
+import { LogOut, Download, Upload, Cloud, Plus, Info, Fingerprint, Eye, EyeOff, Lock } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useVaultStore } from '../../store/useVaultStore';
 import { exportVaultFile, pickVaultFile, processVaultFile } from '../../services/exportService';
 import { uploadToCloud } from '../../services/cloudBackupService';
 import { saveVault } from '../../services/storageService';
 import * as SecureStore from 'expo-secure-store';
+import { Buffer } from 'buffer';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
 import { ExportPayload, VaultFolder } from '../../types/vault';
 import { ActionAuthModal } from '../../components/ActionAuthModal';
+import { ImportFormatType, parseUniversalFile } from '../../services/universalImportService';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -22,10 +24,39 @@ export default function SettingsScreen() {
   // Auth Action State
   const [authModalVisible, setAuthModalVisible] = useState(false);
   const [authTitle, setAuthTitle] = useState('');
+  const [authForcePassword, setAuthForcePassword] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  
+  const [biometricsEnabled, setBiometricsEnabled] = useState(false);
 
-  const requestAuth = (title: string, action: () => void) => {
+  useEffect(() => {
+    SecureStore.getItemAsync('has_biometric_mek').then(val => {
+      setBiometricsEnabled(val === 'true');
+    });
+  }, []);
+
+  const handleToggleBiometrics = (newValue: boolean) => {
+    // Revert switch visually until auth succeeds
+    setBiometricsEnabled(!newValue);
+    
+    requestAuth('Authenticate to change security settings', async () => {
+      if (newValue) {
+        if (mek) {
+          await SecureStore.setItemAsync('vault_mek', Buffer.from(mek).toString('base64'));
+          await SecureStore.setItemAsync('has_biometric_mek', 'true');
+          setBiometricsEnabled(true);
+        }
+      } else {
+        await SecureStore.deleteItemAsync('vault_mek');
+        await SecureStore.deleteItemAsync('has_biometric_mek');
+        setBiometricsEnabled(false);
+      }
+    }, true); // Force Master Password instead of biometric prompt
+  };
+
+  const requestAuth = (title: string, action: () => void, forcePassword = false) => {
     setAuthTitle(title);
+    setAuthForcePassword(forcePassword);
     setPendingAction(() => action);
     setAuthModalVisible(true);
   };
@@ -42,11 +73,15 @@ export default function SettingsScreen() {
   const [importModalVisible, setImportModalVisible] = useState(false);
   const [importPassword, setImportPassword] = useState('');
   const [selectedFileUri, setSelectedFileUri] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<'native' | 'third_party'>('native');
+  const [selectedThirdPartyService, setSelectedThirdPartyService] = useState<ImportFormatType | null>(null);
+  const [thirdPartyModalVisible, setThirdPartyModalVisible] = useState(false);
   
   const [importFolderModalVisible, setImportFolderModalVisible] = useState(false);
   const [importedEntries, setImportedEntries] = useState<any[]>([]);
+  const [showImportPassword, setShowImportPassword] = useState(false);
   
-  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('#3B82F6');
   const FOLDER_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
@@ -82,9 +117,10 @@ export default function SettingsScreen() {
   const handlePickFile = async () => {
     useAuthStore.getState().setIgnoreAppBackground(true);
     try {
-      const uri = await pickVaultFile();
-      if (uri) {
-        setSelectedFileUri(uri);
+      const fileUri = await pickVaultFile();
+      if (fileUri) {
+        setSelectedFileUri(fileUri);
+        setImportMode('native');
         setImportModalVisible(true);
       }
     } catch (error: any) {
@@ -92,6 +128,59 @@ export default function SettingsScreen() {
     } finally {
       setTimeout(() => useAuthStore.getState().setIgnoreAppBackground(false), 1000);
     }
+  };
+
+  const handlePickThirdPartyFile = async (format: ImportFormatType) => {
+    setThirdPartyModalVisible(false);
+    
+    // Catch unsupported formats immediately
+    if (format === 'Unsupported Formats Help' as any) {
+       Alert.alert(
+         'Unsupported Formats',
+         'Encrypted or zipped formats like .kdbx (KeePass), .1pux (1Password), or .zip (ProtonPass) cannot be imported directly into the mobile app.\n\nPlease open those apps and export as an "Unencrypted CSV" or "Unencrypted JSON", which we fully support!'
+       );
+       return;
+    }
+    
+    requestAuth(`Authenticate to Import ${format}`, async () => {
+      useAuthStore.getState().setIgnoreAppBackground(true);
+      try {
+        const fileUri = await pickVaultFile();
+        if (fileUri) {
+          setSelectedFileUri(fileUri);
+          setSelectedThirdPartyService(format);
+          setImportMode('third_party');
+          
+          setIsProcessing(true);
+          try {
+            // Third-party files (CSV or JSON) are not encrypted with a Master Password, we parse directly
+            const entries = await parseUniversalFile(fileUri, format, 'temp');
+            
+            if (entries.length === 0) {
+              Alert.alert('No Entries Found', `We couldn't find any valid passwords in this file. Are you sure this is a valid ${format} export?`);
+              setSelectedFileUri(null);
+              return;
+            }
+            
+            setImportedEntries(entries);
+            setNewFolderName('');
+            setThirdPartyModalVisible(false);
+            setTimeout(() => {
+              setImportFolderModalVisible(true);
+            }, 300);
+          } catch (error: any) {
+            Alert.alert('Import Failed', error.message);
+            setSelectedFileUri(null);
+          } finally {
+            setIsProcessing(false);
+          }
+        }
+      } catch (error: any) {
+        Alert.alert('File Picker Error', error.message);
+      } finally {
+        setTimeout(() => useAuthStore.getState().setIgnoreAppBackground(false), 1000);
+      }
+    });
   };
 
   const handleImportSubmit = async () => {
@@ -105,7 +194,10 @@ export default function SettingsScreen() {
       if (importedPayload && importedPayload.entries && importedPayload.entries.length > 0) {
         setImportedEntries(importedPayload.entries);
         setImportModalVisible(false);
-        setImportFolderModalVisible(true);
+        setNewFolderName('');
+        setTimeout(() => {
+          setImportFolderModalVisible(true);
+        }, 300);
       } else {
         Alert.alert('Import Failed', 'No entries found in the selected file.');
         setImportModalVisible(false);
@@ -121,30 +213,49 @@ export default function SettingsScreen() {
 
   const finalizeImport = async (folderId: string) => {
     if (!mek) return;
-    setImportFolderModalVisible(false);
-    setIsCreatingFolder(false);
+    setIsProcessing(true);
     
-    // Map imported entries to new ID and target folder to avoid ID conflicts
-    const newEntriesToMerge = importedEntries.map(e => ({
-      ...e,
-      id: Crypto.randomUUID(),
-      folderId: folderId,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    }));
+    try {
+      // Small timeout to allow the UI to re-render the ActivityIndicator
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Map imported entries to new ID and target folder to avoid ID conflicts
+      const newEntriesToMerge = importedEntries.map(e => ({
+        ...e,
+        id: Crypto.randomUUID(),
+        folderId: folderId,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }));
 
-    const merged = [...entries, ...newEntriesToMerge];
-    const { folders } = useVaultStore.getState();
-    
-    setEntries(merged);
-    await saveVault({ version: 1, timestamp: Date.now(), entries: merged, folders }, mek);
-    
-    Alert.alert('Import Successful', `Added ${newEntriesToMerge.length} entries to your vault.`);
-    setImportedEntries([]);
+      const newVaultData = {
+        entries: [...useVaultStore.getState().entries, ...newEntriesToMerge],
+        folders: useVaultStore.getState().folders
+      };
+
+      await saveVault(newVaultData, mek);
+      setEntries(newVaultData.entries);
+      
+      setImportFolderModalVisible(false);
+      setSelectedFileUri(null);
+      setImportedEntries([]);
+      
+      setTimeout(() => {
+        Alert.alert('Import Successful', `Successfully imported ${newEntriesToMerge.length} passwords!`);
+      }, 300);
+    } catch (error: any) {
+      Alert.alert('Import Failed', 'Failed to save imported entries.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCreateNewFolderAndImport = async () => {
     if (!newFolderName.trim()) return;
+    setIsProcessing(true);
+    
+    // Small timeout to allow UI to render spinner
+    await new Promise(resolve => setTimeout(resolve, 50));
     
     const newFolder: VaultFolder = {
       id: Crypto.randomUUID(),
@@ -156,6 +267,7 @@ export default function SettingsScreen() {
     await useVaultStore.getState().addFolder(newFolder);
     await finalizeImport(newFolder.id);
     setNewFolderName('');
+    // finalizeImport already sets isProcessing to false
   };
 
   const handleCloudBackup = async () => {
@@ -206,15 +318,30 @@ export default function SettingsScreen() {
         <View className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
           <SettingRow icon={<Upload size={20} color="#3B82F6" />} label="Export Vault" onPress={() => requestAuth('Authenticate to Export', () => setExportModalVisible(true))} disabled={isProcessing} />
           <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<Download size={20} color="#10B981" />} label="Import Vault" onPress={handlePickFile} disabled={isProcessing} />
+          <SettingRow icon={<Download size={20} color="#10B981" />} label="Import .vault Backup" onPress={() => requestAuth('Authenticate to Import', handlePickFile)} disabled={isProcessing} />
           <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<Cloud size={20} color="#8B5CF6" />} label="Cloud Backup" onPress={() => setCloudModalVisible(true)} disabled={isProcessing} />
+          <SettingRow icon={<Download size={20} color="#F59E0B" />} label="Import from Other Services" onPress={() => setThirdPartyModalVisible(true)} disabled={isProcessing} />
+          <View className="h-[1px] bg-zinc-800 ml-12" />
+          <SettingRow icon={<Cloud size={20} color="#8B5CF6" />} label="Cloud Backup" onPress={() => Alert.alert('Coming Soon', 'Cloud backup functionality is currently under development and will be available in a future update.')} disabled={isProcessing} rightElement={<Lock size={16} color="#52525B" />} />
         </View>
       </View>
 
       <View className="mb-8">
         <Text className="text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Security</Text>
         <View className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
+          <SettingRow 
+            icon={<Fingerprint size={20} color="#3B82F6" />} 
+            label="Biometric Login" 
+            rightElement={
+              <Switch 
+                value={biometricsEnabled} 
+                onValueChange={handleToggleBiometrics} 
+                trackColor={{ false: '#3f3f46', true: '#3b82f6' }}
+                thumbColor="#ffffff"
+              />
+            }
+          />
+          <View className="h-[1px] bg-zinc-800 ml-12" />
           <SettingRow icon={<LogOut size={20} color="#F59E0B" />} label="Lock Vault" onPress={handleLock} />
         </View>
       </View>
@@ -266,127 +393,206 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Export Password Modal */}
-      <Modal visible={exportModalVisible} animationType="fade" transparent>
-        <View className="flex-1 bg-black/80 justify-center p-6">
-          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-            <Text className="text-xl font-bold text-white mb-2">Export Vault</Text>
-            
-            {!showCustomExportInput ? (
-              <>
-                <Text className="text-zinc-400 mb-6">Choose how to encrypt your exported vault file. If you use your Master Password, you won't need to create a new one.</Text>
-                <View className="gap-3 space-y-3">
+      <Modal visible={exportModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/80 justify-end">
+            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12">
+              <Text className="text-xl font-bold text-white mb-2">Export Vault</Text>
+              <Text className="text-zinc-400 mb-6">Your exported file will be fully encrypted. Choose how you want to encrypt it.</Text>
+              
+              {!showCustomExportInput ? (
+                <View className="gap-4 mb-6">
                   <TouchableOpacity 
-                    className={`bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${isProcessing ? 'opacity-50' : ''}`}
+                    className="bg-blue-600 p-4 rounded-xl flex-row items-center"
                     onPress={() => handleExport(true)}
                     disabled={isProcessing}
                   >
-                    {isProcessing ? <ActivityIndicator color="#FFFFFF" size="small" /> : <Text className="text-white font-semibold">Use Master Password</Text>}
+                    <View className="w-10 h-10 rounded-full bg-white/20 items-center justify-center mr-4">
+                      <LogOut color="#FFF" size={20} />
+                    </View>
+                    <View className="flex-1">
+                      <Text className="text-white font-bold text-lg">Use Master Password</Text>
+                      <Text className="text-blue-100 text-sm">Recommended. Use your current Master Password to encrypt the file.</Text>
+                    </View>
                   </TouchableOpacity>
+
                   <TouchableOpacity 
-                    className="bg-zinc-800 p-4 rounded-xl items-center"
+                    className="bg-zinc-800 p-4 rounded-xl flex-row items-center"
                     onPress={() => setShowCustomExportInput(true)}
-                    disabled={isProcessing}
                   >
-                    <Text className="text-white font-semibold">Create Custom Password</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    className="bg-transparent border border-zinc-700 p-4 rounded-xl items-center mt-2"
-                    onPress={() => { setExportModalVisible(false); }}
-                    disabled={isProcessing}
-                  >
-                    <Text className="text-white font-semibold">Cancel</Text>
+                    <View className="flex-1">
+                      <Text className="text-white font-bold text-lg">Use Custom Password</Text>
+                      <Text className="text-zinc-400 text-sm">Create a one-time password specifically for this export file.</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
-              </>
-            ) : (
-              <>
-                <Text className="text-zinc-400 mb-6">Create a password to encrypt this backup file. You'll need this password to import it later.</Text>
-                <TextInput
-                  className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl mb-6"
-                  placeholder="Backup Password"
-                  placeholderTextColor="#52525B"
-                  secureTextEntry
-                  value={exportPassword}
-                  onChangeText={setExportPassword}
-                  autoCapitalize="none"
-                />
-                
-                <View className="flex-row space-x-4 gap-4">
+              ) : (
+                <View className="mb-6">
+                  <Text className="text-zinc-400 mb-2 ml-1">Custom Export Password</Text>
+                  <TextInput
+                    className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg text-center mb-6"
+                    placeholder="Enter custom password"
+                    placeholderTextColor="#52525B"
+                    secureTextEntry
+                    value={exportPassword}
+                    onChangeText={setExportPassword}
+                    autoFocus
+                    autoCapitalize="none"
+                    autoComplete="off"
+                    importantForAutofill="no"
+                    textContentType="none"
+                  />
                   <TouchableOpacity 
-                    className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
-                    onPress={() => { setShowCustomExportInput(false); setExportPassword(''); }}
-                  >
-                    <Text className="text-white font-semibold">Back</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    className={`flex-1 bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${!exportPassword || isProcessing ? 'opacity-50' : ''}`}
+                    className={`bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${(!exportPassword || isProcessing) ? 'opacity-50' : ''}`}
                     onPress={() => handleExport(false)}
                     disabled={!exportPassword || isProcessing}
                   >
                     {isProcessing ? (
                       <ActivityIndicator color="#FFFFFF" size="small" />
                     ) : (
-                      <Text className="text-white font-semibold">Export</Text>
+                      <Text className="text-white font-bold text-lg">Export File</Text>
                     )}
                   </TouchableOpacity>
                 </View>
-              </>
-            )}
-          </View>
-        </View>
-      </Modal>
-
-      {/* Import Password Modal */}
-      <Modal visible={importModalVisible} animationType="fade" transparent>
-        <View className="flex-1 bg-black/80 justify-center p-6">
-          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-            <Text className="text-xl font-bold text-white mb-2">Import Vault</Text>
-            <Text className="text-zinc-400 mb-6">Enter the password that was used to encrypt this backup file.</Text>
-            
-            <TextInput
-              className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl mb-6"
-              placeholder="Backup Password"
-              placeholderTextColor="#52525B"
-              secureTextEntry
-              value={importPassword}
-              onChangeText={setImportPassword}
-              autoCapitalize="none"
-            />
-            
-            <View className="flex-row space-x-4 gap-4">
+              )}
+              
               <TouchableOpacity 
-                className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
-                onPress={() => { setImportModalVisible(false); setImportPassword(''); setSelectedFileUri(null); }}
-                disabled={isProcessing}
+                className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+                onPress={() => {
+                  setExportModalVisible(false);
+                  setShowCustomExportInput(false);
+                  setExportPassword('');
+                }}
               >
                 <Text className="text-white font-semibold">Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                className={`flex-1 bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${!importPassword || isProcessing ? 'opacity-50' : ''}`}
-                onPress={handleImportSubmit}
-                disabled={!importPassword || isProcessing}
-              >
-                {isProcessing ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Text className="text-white font-semibold">Decrypt</Text>
-                )}
-              </TouchableOpacity>
             </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Import Password Modal */}
+      <Modal visible={importModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/80 justify-end">
+            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12">
+              <Text className="text-xl font-bold text-white mb-2">Import Vault</Text>
+              
+              <View className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 mb-6 flex-row items-center mt-4">
+                <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center mr-4">
+                  <Upload color="#10B981" size={20} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white font-bold">File Selected</Text>
+                  <Text className="text-zinc-500 text-xs" numberOfLines={1}>{selectedFileUri}</Text>
+                </View>
+              </View>
+
+              <Text className="text-zinc-400 mb-2 ml-1">Password</Text>
+              <View className="relative mb-6 justify-center">
+                <TextInput
+                  className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg text-center pr-12"
+                  placeholder="Enter password to decrypt file"
+                  placeholderTextColor="#52525B"
+                  secureTextEntry={!showImportPassword}
+                  value={importPassword}
+                  onChangeText={setImportPassword}
+                  autoFocus
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  importantForAutofill="no"
+                  textContentType="none"
+                />
+                <TouchableOpacity 
+                  className="absolute right-4"
+                  onPress={() => setShowImportPassword(!showImportPassword)}
+                >
+                  {showImportPassword ? <EyeOff color="#9CA3AF" size={24} /> : <Eye color="#9CA3AF" size={24} />}
+                </TouchableOpacity>
+              </View>
+
+              <View className="flex-row gap-4 mb-4">
+                <TouchableOpacity 
+                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  onPress={() => {
+                    setImportModalVisible(false);
+                    setImportPassword('');
+                    setShowImportPassword(false);
+                    setSelectedFileUri(null);
+                  }}
+                  disabled={isProcessing}
+                >
+                  <Text className="text-white font-semibold">Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  className={`flex-1 bg-blue-600 p-4 rounded-xl flex-row items-center justify-center ${(!importPassword || isProcessing) ? 'opacity-50' : ''}`}
+                  onPress={handleImportSubmit}
+                  disabled={!importPassword || isProcessing}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text className="text-white font-semibold">Decrypt</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Third Party Import Selection Modal */}
+      <Modal visible={thirdPartyModalVisible} animationType="slide" transparent>
+        <View className="flex-1 bg-black/80 justify-end">
+          <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
+            <Text className="text-xl font-bold text-white mb-2">Import from Other Services</Text>
+            <Text className="text-zinc-400 mb-6">Select the format of the file you exported from your previous password manager.</Text>
+            
+            <ScrollView showsVerticalScrollIndicator={false} className="mb-6" keyboardShouldPersistTaps="handled">
+              {[
+                { name: 'Import CSV File', format: 'CSV', desc: 'Chrome, LastPass, 1Password, etc.' },
+                { name: 'Import JSON File', format: 'JSON', desc: 'Bitwarden, Dashlane, Enpass, etc.' },
+                { name: 'Import XML File', format: 'XML', desc: 'KeePass 2, SafeInCloud, etc.' },
+                { name: 'Unsupported Formats Help', format: 'Unsupported Formats Help', desc: '1PUX, KDBX, ZIP, etc.' }
+              ].map(item => (
+                <TouchableOpacity 
+                  key={item.format}
+                  className="p-4 border-b border-zinc-800"
+                  onPress={() => handlePickThirdPartyFile(item.format as any)}
+                >
+                  <View className="flex-row items-center">
+                    <View className="w-10 h-10 rounded-full bg-blue-500/20 items-center justify-center mr-4">
+                      {item.format === 'Unsupported Formats Help' ? <Info color="#3B82F6" size={20} /> : <Download color="#3B82F6" size={20} />}
+                    </View>
+                    <View>
+                      <Text className="text-white font-semibold text-lg">{item.name}</Text>
+                      <Text className="text-zinc-500 text-sm mt-1">{item.desc}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            
+            <TouchableOpacity 
+              className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+              onPress={() => setThirdPartyModalVisible(false)}
+            >
+              <Text className="text-white font-semibold">Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* Import Target Folder Modal */}
       <Modal visible={importFolderModalVisible} animationType="slide" transparent>
-        <View className="flex-1 bg-black/80 justify-end">
-          <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
-            <Text className="text-xl font-bold text-white mb-2">Import Location</Text>
-            <Text className="text-zinc-400 mb-6">Select a folder to add these {importedEntries.length} imported entries into.</Text>
-            
-            <ScrollView showsVerticalScrollIndicator={false} className="mb-6">
-              {/* New Folder Option */}
-              {isCreatingFolder ? (
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/80 justify-end">
+            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
+              <Text className="text-xl font-bold text-white mb-2">Import Location</Text>
+              <Text className="text-zinc-400 mb-6">Select a folder to add these {importedEntries.length} imported entries into.</Text>
+              
+              <ScrollView showsVerticalScrollIndicator={false} className="mb-6" keyboardShouldPersistTaps="handled">
+                {/* New Folder Option */}
                 <View className="mb-4 p-4 border border-zinc-700 rounded-xl bg-zinc-950">
                   <TextInput
                     className="text-white font-semibold text-lg border-b border-zinc-800 pb-2 mb-4"
@@ -394,7 +600,6 @@ export default function SettingsScreen() {
                     placeholderTextColor="#52525B"
                     value={newFolderName}
                     onChangeText={setNewFolderName}
-                    autoFocus
                     autoCapitalize="none"
                   />
                   <Text className="text-zinc-400 mb-2 ml-1 text-sm">Color</Text>
@@ -408,68 +613,51 @@ export default function SettingsScreen() {
                       />
                     ))}
                   </View>
-                  <View className="flex-row space-x-3 gap-3">
-                    <TouchableOpacity 
-                      className="flex-1 bg-zinc-800 p-3 rounded-lg items-center"
-                      onPress={() => setIsCreatingFolder(false)}
-                    >
-                      <Text className="text-white">Cancel</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      className={`flex-1 bg-blue-600 p-3 rounded-lg items-center ${!newFolderName.trim() ? 'opacity-50' : ''}`}
-                      onPress={handleCreateNewFolderAndImport}
-                      disabled={!newFolderName.trim()}
-                    >
-                      <Text className="text-white font-semibold">Create & Import</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <TouchableOpacity 
+                    className={`bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${(!newFolderName.trim() || isProcessing) ? 'opacity-50' : ''}`}
+                    onPress={handleCreateNewFolderAndImport}
+                    disabled={!newFolderName.trim() || isProcessing}
+                  >
+                    {isProcessing ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text className="text-white font-semibold text-lg">Create & Import</Text>
+                    )}
+                  </TouchableOpacity>
                 </View>
-              ) : (
-                <TouchableOpacity 
-                  className="flex-row items-center p-4 border-b border-zinc-800"
-                  onPress={() => {
-                    setNewFolderName('');
-                    setNewFolderColor('#3B82F6');
-                    setIsCreatingFolder(true);
-                  }}
-                >
-                  <View className="w-8 h-8 rounded-full bg-blue-500/20 items-center justify-center mr-4">
-                    <Plus color="#3B82F6" size={20} />
-                  </View>
-                  <Text className="text-blue-400 font-semibold text-lg">Create New Folder</Text>
-                </TouchableOpacity>
-              )}
+                
+                {useVaultStore.getState().folders.map(folder => (
+                  <TouchableOpacity 
+                    key={folder.id} 
+                    className="flex-row items-center p-4 border-b border-zinc-800"
+                    onPress={() => finalizeImport(folder.id)}
+                  >
+                    <View className="w-4 h-4 rounded-full mr-4" style={{ backgroundColor: folder.color }} />
+                    <Text className="text-white font-semibold text-lg">{folder.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
               
-              {useVaultStore.getState().folders.map(folder => (
-                <TouchableOpacity 
-                  key={folder.id} 
-                  className="flex-row items-center p-4 border-b border-zinc-800"
-                  onPress={() => finalizeImport(folder.id)}
-                >
-                  <View className="w-4 h-4 rounded-full mr-4" style={{ backgroundColor: folder.color }} />
-                  <Text className="text-white font-semibold text-lg">{folder.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            
-            <TouchableOpacity 
-              className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
-              onPress={() => {
-                setImportFolderModalVisible(false);
-                setSelectedFileUri(null);
-                setImportedEntries([]);
-              }}
-            >
-              <Text className="text-white font-semibold">Cancel</Text>
-            </TouchableOpacity>
+              <TouchableOpacity 
+                className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+                onPress={() => {
+                  setImportFolderModalVisible(false);
+                  setSelectedFileUri(null);
+                  setImportedEntries([]);
+                }}
+              >
+                <Text className="text-white font-semibold">Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Action Auth Modal */}
       <ActionAuthModal 
         visible={authModalVisible}
         title={authTitle}
+        forcePassword={authForcePassword}
         onCancel={() => setAuthModalVisible(false)}
         onSuccess={() => {
           setAuthModalVisible(false);
@@ -485,16 +673,17 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingRow({ icon, label, onPress, destructive = false, disabled = false }: any) {
+function SettingRow({ icon, label, onPress, destructive = false, disabled = false, rightElement }: any) {
   return (
     <TouchableOpacity 
       className={`flex-row items-center p-4 ${disabled ? 'opacity-50' : ''}`} 
       onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.7}
+      disabled={disabled || !onPress}
+      activeOpacity={onPress ? 0.7 : 1}
     >
       <View className="w-8">{icon}</View>
       <Text className={`text-base flex-1 ${destructive ? 'text-red-500 font-semibold' : 'text-white'}`}>{label}</Text>
+      {rightElement && <View>{rightElement}</View>}
     </TouchableOpacity>
   );
 }

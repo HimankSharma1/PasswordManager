@@ -452,6 +452,9 @@ export default function VaultScreen() {
                 placeholderTextColor="#52525B"
                 value={newUsername} onChangeText={setNewUsername}
                 autoCapitalize="none"
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="none"
               />
             </View>
             <View>
@@ -464,6 +467,9 @@ export default function VaultScreen() {
                   placeholderTextColor="#52525B"
                   value={newPassword} onChangeText={setNewPassword}
                   autoCapitalize="none"
+                  autoComplete="off"
+                  importantForAutofill="no"
+                  textContentType="none"
                 />
                 <TouchableOpacity 
                   className="absolute right-4"

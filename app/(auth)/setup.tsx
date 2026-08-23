@@ -49,10 +49,7 @@ export default function SetupScreen() {
         
         if (hasHardware && isEnrolled) {
           const mekBase64 = Buffer.from(mek).toString('base64');
-          await SecureStore.setItemAsync('vault_mek', mekBase64, {
-            requireAuthentication: true,
-            keychainAccessible: SecureStore.WHEN_UNLOCKED,
-          });
+          await SecureStore.setItemAsync('vault_mek', mekBase64);
           await SecureStore.setItemAsync('has_biometric_mek', 'true');
           setBiometricEnabled(true);
         } else {
@@ -100,6 +97,9 @@ export default function SetupScreen() {
             value={password}
             onChangeText={setPassword}
             autoCapitalize="none"
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
           />
           <PasswordStrength password={password} />
         </View>
@@ -114,6 +114,9 @@ export default function SetupScreen() {
             value={confirmPassword}
             onChangeText={setConfirmPassword}
             autoCapitalize="none"
+            autoComplete="off"
+            importantForAutofill="no"
+            textContentType="none"
           />
         </View>
 

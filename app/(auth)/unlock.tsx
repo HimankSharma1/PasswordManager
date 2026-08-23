@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import { CustomAlert as Alert } from '../../utils/alert';
+import { Eye, EyeOff } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import * as SecureStore from 'expo-secure-store';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { Buffer } from 'buffer';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useVaultStore } from '../../store/useVaultStore';
@@ -15,6 +17,7 @@ let isBiometricPromptActive = false;
 export default function UnlockScreen() {
   const router = useRouter();
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [canUseBiometrics, setCanUseBiometrics] = useState(false);
   const [isBiometricPromptActiveUI, setIsBiometricPromptActiveUI] = useState(false);
@@ -53,10 +56,39 @@ export default function UnlockScreen() {
     await new Promise(resolve => setTimeout(resolve, 250));
     
     try {
-      const mekBase64 = await SecureStore.getItemAsync('vault_mek', { requireAuthentication: true });
-      if (mekBase64) {
-        const mek = new Uint8Array(Buffer.from(mekBase64, 'base64'));
-        await unlockWithKey(mek);
+      const authResult = await LocalAuthentication.authenticateAsync({
+        promptMessage: 'Unlock Vault',
+        fallbackLabel: 'Use Master Password',
+        disableDeviceFallback: true,
+      });
+      
+      if (authResult.success) {
+        let mekBase64: string | null = null;
+        try {
+          mekBase64 = await Promise.race([
+            SecureStore.getItemAsync('vault_mek'),
+            new Promise<string | null>((_, reject) => 
+              setTimeout(() => reject(new Error('SecureStore timeout (invalidated keys)')), 1500)
+            )
+          ]);
+        } catch (e) {
+          // Android Keystore bug: key was invalidated, so it hung or threw.
+          // Wipe the biometric flags and force password fallback.
+          await SecureStore.deleteItemAsync('has_biometric_mek').catch(() => {});
+          Alert.alert('Biometrics Invalidated', 'Your biometric keys were invalidated because your fingerprints changed. Please log in with your Master Password and re-enable biometrics in Settings.');
+        }
+
+        if (mekBase64) {
+          const mek = new Uint8Array(Buffer.from(mekBase64, 'base64'));
+          await unlockWithKey(mek);
+        } else {
+          setIsBiometricPromptActiveUI(false);
+          setIsInitializingBiometrics(false);
+        }
+      } else {
+        // Fallback to password
+        setIsBiometricPromptActiveUI(false);
+        setIsInitializingBiometrics(false);
       }
     } catch (error) {
       // Biometric failed or intentionally cancelled by user
@@ -77,6 +109,9 @@ export default function UnlockScreen() {
     setIsProcessing(true);
     
     try {
+      setIsProcessing(true);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const saltBase64 = await SecureStore.getItemAsync('vault_salt');
       if (!saltBase64) throw new Error('Salt not found. Vault is corrupted.');
       
@@ -121,24 +156,26 @@ export default function UnlockScreen() {
           <Text className="text-zinc-400 text-center">Enter your Master Password to decrypt your local vault.</Text>
         </View>
         
-        {(isBiometricPromptActiveUI || isInitializingBiometrics) ? (
-          <View className="items-center justify-center py-10">
-            <ActivityIndicator size="large" color="#3B82F6" />
-            <Text className="text-zinc-400 mt-6 font-semibold">Waiting for Biometrics...</Text>
-          </View>
-        ) : (
-          <>
-            <View className="mb-6">
+            <View className="mb-6 relative justify-center">
               <TextInput
-                className="bg-zinc-900 border border-zinc-700 text-white p-4 rounded-xl text-lg text-center"
+                className="bg-zinc-900 border border-zinc-700 text-white p-4 rounded-xl text-lg text-center pr-12"
                 placeholder="Master Password"
                 placeholderTextColor="#52525B"
-                secureTextEntry
+                secureTextEntry={!showPassword}
                 value={password}
                 onChangeText={setPassword}
                 autoCapitalize="none"
+                autoComplete="off"
+                importantForAutofill="no"
+                textContentType="none"
                 onSubmitEditing={handlePasswordUnlock}
               />
+              <TouchableOpacity 
+                className="absolute right-4"
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                {showPassword ? <EyeOff color="#9CA3AF" size={24} /> : <Eye color="#9CA3AF" size={24} />}
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -158,8 +195,6 @@ export default function UnlockScreen() {
                 <BiometricPrompt onAuthenticate={handleBiometricUnlock} />
               </View>
             )}
-          </>
-        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );
