@@ -363,6 +363,9 @@ export default function VaultScreen() {
         keyExtractor={item => item.id}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: 100 }}
+        initialNumToRender={15}
+        maxToRenderPerBatch={10}
+        windowSize={5}
         renderItem={({ item }) => (
           <VaultItemCard 
             entry={item} 

@@ -6,7 +6,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useVaultStore } from '../../store/useVaultStore';
 import { exportVaultFile, pickVaultFile, processVaultFile } from '../../services/exportService';
 import { uploadToCloud } from '../../services/cloudBackupService';
-import { saveVault } from '../../services/storageService';
+import { saveVault, destroyVault } from '../../services/storageService';
 import * as SecureStore from 'expo-secure-store';
 import { Buffer } from 'buffer';
 import * as Crypto from 'expo-crypto';
@@ -81,12 +81,18 @@ export default function SettingsScreen() {
   const [importedEntries, setImportedEntries] = useState<any[]>([]);
   const [showImportPassword, setShowImportPassword] = useState(false);
   
+  // Destroy Flow State
+  const [destroyModalVisible, setDestroyModalVisible] = useState(false);
+  const [understandDestroy, setUnderstandDestroy] = useState(false);
+  const [backupPromptVisible, setBackupPromptVisible] = useState(false);
+  const [isPreDestroyExport, setIsPreDestroyExport] = useState(false);
+  
 
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderColor, setNewFolderColor] = useState('#3B82F6');
   const FOLDER_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
 
-  const handleExport = async (useMasterPassword: boolean) => {
+  const executeExport = async (useMasterPassword: boolean) => {
     if (!mek) return;
     if (!useMasterPassword && !exportPassword) return;
     
@@ -100,17 +106,50 @@ export default function SettingsScreen() {
         version: 1,
         timestamp: Date.now(),
         entries,
+        folders: useVaultStore.getState().folders
       };
-      await exportVaultFile(payload, useMasterPassword ? undefined : exportPassword, mek, useMasterPassword);
+      
+      await exportVaultFile(payload, useMasterPassword ? undefined : exportPassword, mek, useMasterPassword, isPreDestroyExport);
+      
       setExportModalVisible(false);
-      setShowCustomExportInput(false);
-    } catch (error: any) {
-      Alert.alert('Export Failed', error.message);
-    } finally {
-      setIsProcessing(false);
       setExportPassword('');
+      setShowCustomExportInput(false);
       // Slight delay before re-enabling auto-lock to allow OS to transition back fully
       setTimeout(() => useAuthStore.getState().setIgnoreAppBackground(false), 1000);
+      
+      if (isPreDestroyExport) {
+        setIsPreDestroyExport(false);
+        setTimeout(() => executeWipe(), 500);
+      }
+    } catch (error: any) {
+      Alert.alert('Export Error', error.message);
+      setIsPreDestroyExport(false);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleExport = (useMasterPassword: boolean) => {
+    if (isPreDestroyExport) {
+      requestAuth('Final Confirmation', () => executeExport(useMasterPassword), false);
+    } else {
+      executeExport(useMasterPassword);
+    }
+  };
+
+  const executeWipe = async () => {
+    setIsProcessing(true);
+    try {
+      await SecureStore.deleteItemAsync('vault_salt');
+      await SecureStore.deleteItemAsync('vault_mek');
+      await SecureStore.deleteItemAsync('has_biometric_mek');
+      await destroyVault();
+      useVaultStore.getState().clearVault();
+      lockVault(); // triggers route drop
+    } catch (e) {
+      Alert.alert('Error', 'Failed to wipe device data.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -296,16 +335,8 @@ export default function SettingsScreen() {
   };
 
   const handleReset = () => {
-    Alert.alert('Destroy Vault', 'This will permanently delete your vault and all passwords. This action cannot be undone. Continue?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Destroy', style: 'destructive', onPress: async () => {
-          await SecureStore.deleteItemAsync('vault_salt');
-          await SecureStore.deleteItemAsync('vault_mek');
-          await SecureStore.deleteItemAsync('has_biometric_mek');
-          lockVault();
-          router.replace('/(auth)/setup');
-      }}
-    ]);
+    setUnderstandDestroy(false);
+    setDestroyModalVisible(true);
   };
 
   return (
@@ -669,6 +700,97 @@ export default function SettingsScreen() {
           }
         }}
       />
+      {/* Destroy Vault Modal */}
+      <Modal visible={destroyModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/80 justify-center p-6">
+            <View className="bg-zinc-900 p-6 rounded-3xl border border-red-900/30">
+              <Text className="text-xl font-bold text-red-500 mb-2">Warning: Destroy Vault</Text>
+              <Text className="text-zinc-400 mb-6">This action will permanently delete all your encrypted data, passwords, and security settings. This cannot be undone.</Text>
+              
+              <TouchableOpacity 
+                className="flex-row items-center space-x-3 mb-6 gap-3"
+                onPress={() => setUnderstandDestroy(!understandDestroy)}
+                activeOpacity={0.7}
+              >
+                <View className={`w-6 h-6 rounded border items-center justify-center ${understandDestroy ? 'bg-red-500 border-red-500' : 'border-zinc-500'}`}>
+                  {understandDestroy && <Text className="text-white font-bold text-xs">✓</Text>}
+                </View>
+                <Text className="text-zinc-300 flex-1">I understand this will permanently delete all my data.</Text>
+              </TouchableOpacity>
+              
+              <View className="flex-row gap-4">
+                <TouchableOpacity 
+                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  onPress={() => setDestroyModalVisible(false)}
+                >
+                  <Text className="text-white font-semibold">Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  className={`flex-1 bg-red-600 p-4 rounded-xl items-center ${!understandDestroy ? 'opacity-50' : ''}`}
+                  onPress={() => {
+                    setDestroyModalVisible(false);
+                    setBackupPromptVisible(true);
+                  }}
+                  disabled={!understandDestroy}
+                >
+                  <Text className="text-white font-semibold">Next</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Backup Prompt Modal */}
+      <Modal visible={backupPromptVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/80 justify-center p-6">
+            <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
+              <Text className="text-xl font-bold text-white mb-2">Create Backup?</Text>
+              <Text className="text-zinc-400 mb-4">Would you like to export your vault to a secure file before destroying it?</Text>
+              
+              <View className="bg-blue-900/30 p-3 rounded-lg border border-blue-800/50 mb-6">
+                <Text className="text-blue-300 text-xs text-center">
+                  Backup will be automatically saved to:
+                  {"\n"}<Text className="font-bold">Documents / Password Manager / vault backup</Text>
+                </Text>
+              </View>
+              
+              <TouchableOpacity 
+                className="bg-blue-600 p-4 rounded-xl items-center mb-4"
+                onPress={() => {
+                  setBackupPromptVisible(false);
+                  setIsPreDestroyExport(true);
+                  setExportModalVisible(true);
+                }}
+              >
+                <Text className="text-white font-semibold">Export Vault Backup</Text>
+              </TouchableOpacity>
+              
+              <View className="flex-row gap-4">
+                <TouchableOpacity 
+                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  onPress={() => {
+                    setBackupPromptVisible(false);
+                  }}
+                >
+                  <Text className="text-white font-semibold">Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  className="flex-1 bg-red-900/50 p-4 rounded-xl items-center"
+                  onPress={() => {
+                    setBackupPromptVisible(false);
+                    requestAuth('Final Confirmation', executeWipe, false);
+                  }}
+                >
+                  <Text className="text-red-400 font-semibold">Skip & Destroy</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 }

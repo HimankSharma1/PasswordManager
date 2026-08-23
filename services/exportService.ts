@@ -6,7 +6,15 @@ import { encryptData, decryptData, deriveKey, generateSalt } from './cryptoServi
 import { Buffer } from 'buffer';
 import * as SecureStore from 'expo-secure-store';
 
-export async function exportVaultFile(payload: ExportPayload, exportPassword?: string, mek?: Uint8Array, useMasterPassword?: boolean): Promise<void> {
+async function getOrCreateDir(parentUri: string, dirName: string): Promise<string> {
+  const children = await FileSystem.StorageAccessFramework.readDirectoryAsync(parentUri);
+  const encodedDirName = encodeURIComponent(dirName);
+  const existing = children.find(child => child.endsWith(`%2F${encodedDirName}`) || child.endsWith(`%3A${encodedDirName}`));
+  if (existing) return existing;
+  return await FileSystem.StorageAccessFramework.makeDirectoryAsync(parentUri, dirName);
+}
+
+export async function exportVaultFile(payload: ExportPayload, exportPassword?: string, mek?: Uint8Array, useMasterPassword?: boolean, directSave: boolean = false): Promise<void> {
   const jsonPayload = JSON.stringify(payload);
   let encryptedPayload: string;
   
@@ -30,11 +38,25 @@ export async function exportVaultFile(payload: ExportPayload, exportPassword?: s
     throw new Error('Must provide either an export password or the active MEK.');
   }
 
-  const exportUri = FileSystem.cacheDirectory + 'backup.vault';
-  await FileSystem.writeAsStringAsync(exportUri, encryptedPayload, { encoding: FileSystem.EncodingType.UTF8 });
-
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(exportUri, { mimeType: 'application/octet-stream', dialogTitle: 'Export Password Vault' });
+  if (directSave) {
+    // Default to Documents folder
+    const initialUri = 'content://com.android.externalstorage.documents/document/primary%3ADocuments';
+    const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync(initialUri);
+    if (permissions.granted) {
+      const pmDirUri = await getOrCreateDir(permissions.directoryUri, 'Password Manager');
+      const backupDirUri = await getOrCreateDir(pmDirUri, 'vault backup');
+      
+      const fileName = `backup_data_${new Date().toISOString().split('T')[0]}.vault`;
+      const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(backupDirUri, fileName, 'application/octet-stream');
+      await FileSystem.writeAsStringAsync(newFileUri, encryptedPayload, { encoding: FileSystem.EncodingType.UTF8 });
+    }
+  } else {
+    const exportUri = FileSystem.cacheDirectory + 'backup.vault';
+    await FileSystem.writeAsStringAsync(exportUri, encryptedPayload, { encoding: FileSystem.EncodingType.UTF8 });
+  
+    if (await Sharing.isAvailableAsync()) {
+      await Sharing.shareAsync(exportUri, { mimeType: 'application/octet-stream', dialogTitle: 'Export Password Vault' });
+    }
   }
 }
 
