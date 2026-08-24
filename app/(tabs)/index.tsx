@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, FlatList, TouchableOpacity, Modal, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, FlatList, TouchableOpacity, Modal, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { CustomAlert as Alert } from '../../utils/alert';
 import { Search, Plus, X, Eye, EyeOff, FolderInput, Trash2, CheckCheck } from 'lucide-react-native';
 import { useVaultStore } from '../../store/useVaultStore';
@@ -38,14 +38,14 @@ export default function VaultScreen() {
   const [newFolderModalVisible, setNewFolderModalVisible] = useState(false);
   const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
   const [newFolderInputName, setNewFolderInputName] = useState('');
-  const [newFolderInputColor, setNewFolderInputColor] = useState('#3B82F6');
+  const [newFolderInputColor, setNewFolderInputColor] = useState('#F5B971');
   
   // Selection Mode State
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedEntryIds, setSelectedEntryIds] = useState<Set<string>>(new Set());
   const [moveModalVisible, setMoveModalVisible] = useState(false);
 
-  const FOLDER_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
+  const FOLDER_COLORS = ['#F5B971', '#EF4444', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1'];
 
   useEffect(() => {
     if (draftPassword || draftUsername) {
@@ -267,92 +267,112 @@ export default function VaultScreen() {
     setEditingFolderId(null);
   };
 
+  const handleDeleteFolder = () => {
+    if (!editingFolderId || editingFolderId === 'default') return;
+
+    const entriesInFolder = entries.filter(e => e.folderId === editingFolderId).length;
+    
+    if (entriesInFolder > 0) {
+      Alert.alert(
+        'Cannot Delete Folder',
+        `This folder contains ${entriesInFolder} entries. Please transfer them to another folder before deleting this one.`,
+        [{ text: 'OK', style: 'default' }]
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Delete Folder',
+      'Are you sure you want to delete this empty folder?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive',
+          onPress: async () => {
+            await deleteFolder(editingFolderId);
+            setNewFolderModalVisible(false);
+            setEditingFolderId(null);
+            if (folderFilter === editingFolderId) {
+              setFolderFilter('All');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
-    <View className="flex-1 bg-zinc-950 p-4">
-      {/* Search Bar */}
-      <View className="flex-row items-center bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 mb-4">
-        <Search color="#9CA3AF" size={20} />
-        <TextInput 
-          className="flex-1 text-white ml-2 text-base"
-          placeholder="Search vault..."
-          placeholderTextColor="#6B7280"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <X color="#9CA3AF" size={20} />
-          </TouchableOpacity>
-        )}
+    <View className="flex-1 bg-[#f4f4f5] dark:bg-[#09090b] pt-16">
+      <View className="px-6 mb-4">
+        <View className="flex-row items-center justify-between mb-4">
+          <View className="flex-row items-center gap-3">
+            <Image source={require('../../assets/images/logo.png')} className="w-10 h-10 rounded-xl" />
+            <Text className="text-3xl font-bold text-zinc-900 dark:text-white">Nkrypt</Text>
+          </View>
+          <View className="flex-row gap-2">
+          </View>
+        </View>
+        <View className="flex-row items-center bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 shadow-sm">
+          <Search color="#6B7280" size={20} />
+          <TextInput
+            className="flex-1 ml-3 text-zinc-900 dark:text-white text-base"
+            placeholder="Search vault..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <X color="#9CA3AF" size={20} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Folder Chips */}
-      <View className="mb-4">
+      <View className="mb-4 pl-6">
         <FlatList 
           horizontal
           showsHorizontalScrollIndicator={false}
-          data={[{ id: 'All', name: 'All', color: '#9CA3AF' } as VaultFolder, ...folders]}
+          data={folders}
           keyExtractor={item => item.id}
+          ListHeaderComponent={
+            <TouchableOpacity 
+              onPress={() => setFolderFilter('All')}
+              className={`px-4 py-2 rounded-full border mr-2 transition-colors ${folderFilter === 'All' ? 'bg-brand border-brand' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'}`}
+            >
+              <Text className={`font-semibold ${folderFilter === 'All' ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>All</Text>
+            </TouchableOpacity>
+          }
           renderItem={({ item: folder }) => (
             <TouchableOpacity 
-              onPress={() => setFolderFilter(folder.id)}
               onLongPress={() => {
-                if (folder.id !== 'All' && folder.id !== 'default') {
-                  Alert.alert(
-                    `${folder.name}`,
-                    `What would you like to do with this folder?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Edit Folder',
-                        onPress: () => {
-                          setEditingFolderId(folder.id);
-                          setNewFolderInputName(folder.name);
-                          setNewFolderInputColor(folder.color);
-                          setNewFolderModalVisible(true);
-                        }
-                      },
-                      { 
-                        text: 'Delete', 
-                        style: 'destructive',
-                        onPress: () => {
-                          const hasEntries = entries.some(e => e.folderId === folder.id);
-                          if (hasEntries) {
-                            Alert.alert('Cannot Delete', 'This folder is not empty. Please move or delete the passwords inside it first.');
-                            return;
-                          }
-
-                          requestAuth('Authenticate to Delete', async () => {
-                            await deleteFolder(folder.id);
-                            if (folderFilter === folder.id) setFolderFilter('All');
-                          });
-                        }
-                      }
-                    ]
-                  );
-                }
+                setEditingFolderId(folder.id);
+                setNewFolderInputName(folder.name);
+                setNewFolderInputColor(folder.color);
+                setNewFolderModalVisible(true);
               }}
-              className={`px-4 py-2 rounded-full border mr-2 flex-row items-center space-x-2 gap-2 ${folderFilter === folder.id ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900 border-zinc-800'}`}
+              onPress={() => setFolderFilter(folder.id)}
+              className={`px-4 py-2 rounded-full border mr-2 flex-row items-center gap-2 transition-colors ${folderFilter === folder.id ? 'bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'}`}
             >
-              {folder.id !== 'All' && (
-                <View className="w-3 h-3 rounded-full" style={{ backgroundColor: folder.color }} />
-              )}
-              <Text className={`font-semibold ${folderFilter === folder.id ? 'text-white' : 'text-zinc-400'}`}>{folder.name}</Text>
+              <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: folder.color }} />
+              <Text className={`font-semibold ${folderFilter === folder.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>{folder.name}</Text>
             </TouchableOpacity>
           )}
-          ListHeaderComponent={
+          ListFooterComponent={
             <TouchableOpacity 
               onPress={() => {
                 setEditingFolderId(null);
                 setNewFolderInputName('');
-                setNewFolderInputColor('#3B82F6');
+                setNewFolderInputColor('#F5B971');
                 setNewFolderModalVisible(true);
               }}
-              className="px-4 py-2 rounded-full border border-zinc-800 bg-zinc-900 mr-2 flex-row items-center space-x-2 gap-2"
+              className="px-4 py-2 rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 mr-6 flex-row items-center gap-2"
             >
-              <Plus color="#9CA3AF" size={16} />
-              <Text className="font-semibold text-zinc-400">New</Text>
+              <Plus color="#6B7280" size={16} />
+              <Text className="font-semibold text-zinc-600 dark:text-zinc-400">New</Text>
             </TouchableOpacity>
           }
         />
@@ -362,7 +382,7 @@ export default function VaultScreen() {
         data={filteredEntries}
         keyExtractor={item => item.id}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
         initialNumToRender={15}
         maxToRenderPerBatch={10}
         windowSize={5}
@@ -394,19 +414,19 @@ export default function VaultScreen() {
 
       {/* Action Bar or FAB */}
       {selectionMode ? (
-        <View className="absolute bottom-6 left-6 right-6 bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex-row justify-between items-center shadow-lg shadow-black/50">
-          <View className="flex-row items-center space-x-3 gap-3">
+        <View className="absolute bottom-6 left-6 right-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-4 flex-row justify-between items-center shadow-lg">
+          <View className="flex-row items-center gap-3">
             <TouchableOpacity onPress={() => { setSelectionMode(false); setSelectedEntryIds(new Set()); }}>
-              <X color="#9CA3AF" size={24} />
+              <X color="#6B7280" size={24} />
             </TouchableOpacity>
-            <Text className="text-white font-semibold text-lg">{selectedEntryIds.size} Selected</Text>
+            <Text className="text-zinc-900 dark:text-white font-semibold text-lg">{selectedEntryIds.size} Selected</Text>
           </View>
-          <View className="flex-row items-center space-x-4 gap-4">
+          <View className="flex-row items-center gap-4">
             <TouchableOpacity onPress={handleSelectAll} className="p-2">
-              <CheckCheck color={selectedEntryIds.size === filteredEntries.length && filteredEntries.length > 0 ? "#10B981" : "#9CA3AF"} size={24} />
+              <CheckCheck color={selectedEntryIds.size === filteredEntries.length && filteredEntries.length > 0 ? "#10B981" : "#6B7280"} size={24} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setMoveModalVisible(true)} className="p-2">
-              <FolderInput color="#3B82F6" size={24} />
+              <FolderInput color="#F5B971" size={24} />
             </TouchableOpacity>
             <TouchableOpacity onPress={handleBulkDelete} className="p-2">
               <Trash2 color="#EF4444" size={24} />
@@ -415,7 +435,7 @@ export default function VaultScreen() {
         </View>
       ) : (
         <TouchableOpacity 
-          className="absolute bottom-6 right-6 w-14 h-14 bg-blue-500 rounded-full items-center justify-center shadow-lg shadow-blue-500/30"
+          className="absolute bottom-6 right-6 w-14 h-14 bg-brand rounded-full items-center justify-center shadow-lg shadow-brand/30"
           onPress={handleOpenAdd}
         >
           <Plus color="#FFF" size={28} />
@@ -423,12 +443,12 @@ export default function VaultScreen() {
       )}
 
       {/* Add Modal */}
-      <Modal visible={modalVisible} animationType="slide" presentationStyle="formSheet">
-        <View className="flex-1 bg-black/90 pt-16">
+      <Modal visible={modalVisible} animationType="slide" presentationStyle="formSheet" onRequestClose={() => setModalVisible(false)}>
+        <View className="flex-1 bg-white dark:bg-[#09090b] pt-16">
           <View className="px-6 flex-row justify-between items-center mb-6">
-            <Text className="text-3xl font-bold text-white">{editingEntry ? 'Edit Entry' : 'New Entry'}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <X color="#FFF" size={28} />
+            <Text className="text-2xl font-bold text-zinc-900 dark:text-white">{editingEntry ? 'Edit Entry' : 'New Entry'}</Text>
+            <TouchableOpacity onPress={() => setModalVisible(false)} className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+              <X color="#6B7280" size={20} />
             </TouchableOpacity>
           </View>
           
@@ -437,37 +457,36 @@ export default function VaultScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View>
-              <Text className="text-zinc-400 mb-1 ml-1">Title</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-1 ml-1 font-medium">Title</Text>
               <TextInput 
-                className="bg-zinc-900 border border-zinc-800 text-white p-4 rounded-xl" 
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl mb-4" 
                 placeholder="e.g. Google"
-                placeholderTextColor="#52525B"
+                placeholderTextColor="#9CA3AF"
                 value={newTitle} onChangeText={setNewTitle}
                 autoCapitalize="none"
               />
             </View>
             <View>
-              <Text className="text-zinc-400 mb-1 ml-1">Username / Email</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-1 ml-1 font-medium">Username / Email</Text>
               <TextInput 
-                className="bg-zinc-900 border border-zinc-800 text-white p-4 rounded-xl" 
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl mb-4" 
                 autoCapitalize="none"
                 placeholder="john@example.com"
-                placeholderTextColor="#52525B"
+                placeholderTextColor="#9CA3AF"
                 value={newUsername} onChangeText={setNewUsername}
-                autoCapitalize="none"
                 autoComplete="off"
                 importantForAutofill="no"
                 textContentType="none"
               />
             </View>
             <View>
-              <Text className="text-zinc-400 mb-1 ml-1">Password</Text>
-              <View className="relative justify-center">
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-1 ml-1 font-medium">Password</Text>
+              <View className="relative justify-center mb-4">
                 <TextInput 
-                  className="bg-zinc-900 border border-zinc-800 text-white p-4 rounded-xl pr-12" 
+                  className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl pr-12" 
                   secureTextEntry={!showPassword}
                   placeholder="••••••••"
-                  placeholderTextColor="#52525B"
+                  placeholderTextColor="#9CA3AF"
                   value={newPassword} onChangeText={setNewPassword}
                   autoCapitalize="none"
                   autoComplete="off"
@@ -483,23 +502,21 @@ export default function VaultScreen() {
               </View>
             </View>
 
-            <Text className="text-zinc-500 uppercase text-xs font-bold tracking-wider mt-8 mb-4 ml-1">Additional Info</Text>
-
             <View>
-              <Text className="text-zinc-400 mb-1 ml-1">Website URL (Optional)</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-1 ml-1 font-medium">Website URL (Optional)</Text>
               <TextInput 
-                className="bg-zinc-900 border border-zinc-800 text-white p-4 rounded-xl mb-4" 
+                className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl mb-6" 
                 autoCapitalize="none"
                 keyboardType="url"
                 placeholder="https://example.com"
-                placeholderTextColor="#52525B"
+                placeholderTextColor="#9CA3AF"
                 value={newUrl} onChangeText={setNewUrl}
               />
             </View>
 
             {/* Folder Picker */}
             <View>
-              <Text className="text-zinc-400 mb-2 ml-1">Folder</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1 font-medium">Folder</Text>
               <FlatList
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -507,11 +524,11 @@ export default function VaultScreen() {
                 keyExtractor={item => item.id}
                 renderItem={({ item: folder }) => (
                   <TouchableOpacity 
-                    onPress={() => handleEditFolderClick(folder.id)}
-                    className={`px-4 py-3 rounded-xl border mr-2 flex-row items-center space-x-2 gap-2 ${newFolderId === folder.id ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900 border-zinc-800'}`}
+                    onPress={() => setNewFolderId(folder.id)}
+                    className={`px-4 py-3 rounded-xl border mr-2 flex-row items-center gap-2 ${newFolderId === folder.id ? 'bg-zinc-200 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'}`}
                   >
                     <View className="w-3 h-3 rounded-full" style={{ backgroundColor: folder.color }} />
-                    <Text className={`font-semibold ${newFolderId === folder.id ? 'text-white' : 'text-zinc-400'}`}>{folder.name}</Text>
+                    <Text className={`font-semibold ${newFolderId === folder.id ? 'text-zinc-900 dark:text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>{folder.name}</Text>
                   </TouchableOpacity>
                 )}
                 ListHeaderComponent={
@@ -519,20 +536,20 @@ export default function VaultScreen() {
                     onPress={() => {
                       setEditingFolderId(null);
                       setNewFolderInputName('');
-                      setNewFolderInputColor('#3B82F6');
+                      setNewFolderInputColor('#F5B971');
                       setNewFolderModalVisible(true);
                     }}
-                    className="px-4 py-3 rounded-xl border border-zinc-800 bg-zinc-900 mr-2 flex-row items-center space-x-2 gap-2"
+                    className="px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 mr-2 flex-row items-center gap-2"
                   >
-                    <Plus color="#9CA3AF" size={16} />
-                    <Text className="font-semibold text-zinc-400">New</Text>
+                    <Plus color="#6B7280" size={16} />
+                    <Text className="font-semibold text-zinc-600 dark:text-zinc-400">New</Text>
                   </TouchableOpacity>
                 }
               />
             </View>
             
             <TouchableOpacity 
-              className={`bg-blue-500 p-4 rounded-xl items-center mt-4 flex-row justify-center ${(!canSave || isSavingEntry) ? 'opacity-50' : ''}`}
+              className={`bg-brand p-4 rounded-xl items-center mt-6 flex-row justify-center mb-4 ${(!canSave || isSavingEntry) ? 'opacity-50' : ''}`}
               onPress={handleSave}
               disabled={!canSave || isSavingEntry}
             >
@@ -545,12 +562,13 @@ export default function VaultScreen() {
 
             {editingEntry && (
               <TouchableOpacity 
-                className="bg-red-500/20 border border-red-500/50 p-4 rounded-xl items-center mt-2"
+                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 p-4 rounded-xl items-center mb-12"
                 onPress={handleDelete}
               >
-                <Text className="text-red-500 font-bold text-lg">Delete Entry</Text>
+                <Text className="text-red-600 dark:text-red-500 font-bold text-lg">Delete Entry</Text>
               </TouchableOpacity>
             )}
+            <View className="h-8" />
           </ScrollView>
         </View>
       </Modal>
@@ -573,75 +591,95 @@ export default function VaultScreen() {
       />
 
       {/* Folder Add/Edit Modal */}
-      <Modal visible={newFolderModalVisible} animationType="fade" transparent>
-        <View className="flex-1 bg-black/80 justify-center p-6">
-          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-            <Text className="text-xl font-bold text-white mb-6">{editingFolderId ? 'Edit Folder' : 'Create New Folder'}</Text>
+      <Modal visible={newFolderModalVisible} animationType="fade" transparent onRequestClose={() => setNewFolderModalVisible(false)}>
+        <KeyboardAvoidingView behavior="padding" className="flex-1">
+          <View className="flex-1 bg-black/60 justify-center p-6">
+            <View className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xl">
+            <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-6">{editingFolderId ? 'Edit Folder' : 'Create New Folder'}</Text>
             
-            <Text className="text-zinc-400 mb-2 ml-1">Folder Name</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1 font-medium">Folder Name</Text>
             <TextInput
-              className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl mb-6"
+              className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl mb-6"
               placeholder="e.g. Work"
-              placeholderTextColor="#52525B"
+              placeholderTextColor="#9CA3AF"
               value={newFolderInputName}
               onChangeText={setNewFolderInputName}
-              autoCapitalize="none"
+              autoCapitalize="words"
+              autoFocus
             />
 
-            <Text className="text-zinc-400 mb-2 ml-1">Folder Color</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1 font-medium">Folder Color</Text>
             <View className="flex-row flex-wrap gap-3 mb-8">
               {FOLDER_COLORS.map(color => (
                 <TouchableOpacity
                   key={color}
                   onPress={() => setNewFolderInputColor(color)}
-                  className={`w-10 h-10 rounded-full border-2 ${newFolderInputColor === color ? 'border-white' : 'border-transparent'}`}
-                  style={{ backgroundColor: color }}
-                />
+                  className={`w-10 h-10 rounded-full items-center justify-center ${newFolderInputColor === color ? 'border-2 border-zinc-900 dark:border-white' : ''}`}
+                >
+                  <View className="w-8 h-8 rounded-full" style={{ backgroundColor: color }} />
+                </TouchableOpacity>
               ))}
             </View>
-            
-            <View className="flex-row gap-4 space-x-4">
+
+            <View className="flex-row gap-4">
               <TouchableOpacity 
-                className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
-                onPress={() => {
-                  setNewFolderModalVisible(false);
-                  setEditingFolderId(null);
-                }}
+                className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center"
+                onPress={() => setNewFolderModalVisible(false)}
               >
-                <Text className="text-white font-semibold">Cancel</Text>
+                <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
               </TouchableOpacity>
+              
               <TouchableOpacity 
-                className={`flex-1 bg-blue-600 p-4 rounded-xl items-center ${!newFolderInputName ? 'opacity-50' : ''}`}
+                className={`flex-1 bg-brand p-4 rounded-xl items-center ${!newFolderInputName.trim() ? 'opacity-50' : ''}`}
                 onPress={handleSaveFolder}
-                disabled={!newFolderInputName}
+                disabled={!newFolderInputName.trim()}
               >
-                <Text className="text-white font-semibold">{editingFolderId ? 'Save Changes' : 'Create'}</Text>
+                <Text className="text-white font-bold">{editingFolderId ? 'Save' : 'Create'}</Text>
               </TouchableOpacity>
+              </View>
+
+            {editingFolderId && editingFolderId !== 'default' && (
+              <TouchableOpacity 
+                className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 p-4 rounded-xl items-center mt-6"
+                onPress={handleDeleteFolder}
+              >
+                <Text className="text-red-600 dark:text-red-500 font-bold text-lg">Delete Folder</Text>
+              </TouchableOpacity>
+            )}
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
-      {/* Bulk Move Modal */}
-      <Modal visible={moveModalVisible} transparent animationType="fade">
-        <TouchableOpacity className="flex-1 bg-black/80 justify-end" onPress={() => setMoveModalVisible(false)} activeOpacity={1}>
-          <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
-            <Text className="text-xl font-bold text-white mb-6">Move {selectedEntryIds.size} Items To...</Text>
+
+      {/* Move Entries Modal */}
+      <Modal visible={moveModalVisible} animationType="slide" transparent onRequestClose={() => setMoveModalVisible(false)}>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl p-6 border-t border-zinc-200 dark:border-zinc-800">
+            <View className="flex-row justify-between items-center mb-6">
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white">Move {selectedEntryIds.size} Items</Text>
+              <TouchableOpacity onPress={() => setMoveModalVisible(false)} className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-full">
+                <X color="#6B7280" size={20} />
+              </TouchableOpacity>
+            </View>
             
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView className="max-h-96">
               {folders.map(folder => (
-                <TouchableOpacity 
-                  key={folder.id} 
-                  className="flex-row items-center p-4 border-b border-zinc-800"
-                  onPress={() => handleBulkMove(folder.id)}
+                <TouchableOpacity
+                  key={folder.id}
+                  onPress={() => {
+                    requestAuth('Authenticate to Move', () => handleBulkMove(folder.id));
+                  }}
+                  className="flex-row items-center p-4 border-b border-zinc-100 dark:border-zinc-800"
                 >
                   <View className="w-4 h-4 rounded-full mr-4" style={{ backgroundColor: folder.color }} />
-                  <Text className="text-white font-semibold text-lg">{folder.name}</Text>
+                  <Text className="text-zinc-900 dark:text-white text-lg">{folder.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
+
     </View>
   );
 }

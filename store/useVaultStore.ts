@@ -32,7 +32,7 @@ interface VaultState {
 }
 
 const DEFAULT_FOLDERS: VaultFolder[] = [
-  { id: 'default', name: 'Personal', color: '#3B82F6' }
+  { id: 'default', name: 'Personal', color: '#F5B971' }
 ];
 
 export const useVaultStore = create<VaultState>((set, get) => ({
@@ -44,7 +44,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   draftUsername: null,
 
   setEntries: (entries: VaultEntry[]) => set({ entries }),
-  setFolders: (folders: VaultFolder[]) => set({ folders: folders.length > 0 ? folders : DEFAULT_FOLDERS }),
+  setFolders: (folders: VaultFolder[]) => {
+    let finalFolders = folders.length > 0 ? folders : DEFAULT_FOLDERS;
+    // Force existing persisted default folder to adopt the new theme color
+    finalFolders = finalFolders.map(f => f.id === 'default' ? { ...f, color: '#F5B971' } : f);
+    set({ folders: finalFolders });
+  },
   setSearchQuery: (query: string) => set({ searchQuery: query }),
   setFolderFilter: (filter: string | 'All') => set({ folderFilter: filter }),
   setDraftPassword: (pwd: string | null) => set({ draftPassword: pwd }),

@@ -55,49 +55,40 @@ export function VaultItemCard({ entry, onPress, onLongPress, selected }: Props) 
 
   return (
     <TouchableOpacity 
-      className={`flex-row items-center p-4 mb-3 rounded-2xl border transition-colors ${selected ? 'bg-blue-900/20 border-blue-500' : 'bg-zinc-800 border-zinc-700 active:bg-zinc-700'}`}
+      className={`flex-row items-center p-4 mb-3 mx-4 rounded-2xl border transition-colors shadow-sm ${selected ? 'bg-blue-50 dark:bg-blue-900/20 border-brand' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'}`}
       onPress={onPress}
       onLongPress={onLongPress}
       activeOpacity={0.7}
     >
-      <View className="w-12 h-12 rounded-full bg-zinc-900 items-center justify-center mr-4">
+      <View className="w-12 h-12 bg-zinc-50 dark:bg-zinc-950 rounded-xl items-center justify-center mr-4">
         {getIcon()}
       </View>
-      <View className="flex-1">
-        <Text className="text-white font-semibold text-lg" numberOfLines={1}>
-          {entry.title}
-        </Text>
-        <View className="flex-row items-center mt-0.5 space-x-2 gap-2">
-          {folder && (
-            <View className="flex-row items-center space-x-1 gap-1 bg-zinc-900/50 px-2 py-0.5 rounded-md border border-zinc-700/50">
-              <View className="w-2 h-2 rounded-full" style={{ backgroundColor: folder.color }} />
-              <Text className="text-zinc-500 text-xs">{folder.name}</Text>
-            </View>
-          )}
-          {entry.username && (
-            <Text className="text-zinc-400 text-sm flex-shrink" numberOfLines={1}>
-              {entry.username}
-            </Text>
-          )}
-        </View>
+      <View className="flex-1 justify-center">
+        <Text className="text-zinc-900 dark:text-white font-bold text-lg" numberOfLines={1}>{entry.title}</Text>
+        {entry.username ? (
+          <Text className="text-zinc-500 dark:text-zinc-400 mt-1" numberOfLines={1}>{entry.username}</Text>
+        ) : null}
       </View>
-      <View className="flex-row items-center space-x-3 gap-3">
-        {entry.favorite && <Star size={20} color="#FBBF24" fill="#FBBF24" />}
+      
+      <View className="flex-row items-center space-x-2 gap-2">
+        {entry.favorite && (
+          <View className="p-2">
+            <Star size={18} color="#F59E0B" fill="#F59E0B" />
+          </View>
+        )}
+        
         {entry.url && (
           <TouchableOpacity 
-            onPress={() => {
-              const formattedUrl = entry.url!.startsWith('http') ? entry.url! : `https://${entry.url}`;
-              Linking.openURL(formattedUrl).catch(() => Alert.alert('Error', 'Failed to open URL.'));
-            }} 
-            className="p-2 bg-blue-500/20 rounded-full" 
+            onPress={() => Linking.openURL(entry.url!.startsWith('http') ? entry.url! : `https://${entry.url}`)} 
+            className="p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg" 
             activeOpacity={0.6}
           >
-            <ExternalLink size={18} color="#3B82F6" />
+            <ExternalLink size={18} color="#F5B971" />
           </TouchableOpacity>
         )}
         {(entry.password || entry.username) && (
-          <TouchableOpacity onPress={handleCopy} className="p-2 bg-zinc-700 rounded-full" activeOpacity={0.6}>
-            <Copy size={18} color="#D1D5DB" />
+          <TouchableOpacity onPress={handleCopy} className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg" activeOpacity={0.6}>
+            <Copy size={18} color="#6B7280" />
           </TouchableOpacity>
         )}
       </View>

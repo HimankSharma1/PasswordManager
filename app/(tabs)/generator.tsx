@@ -223,56 +223,61 @@ export default function GeneratorScreen() {
   ]);
 
   return (
-    <View className="flex-1 bg-zinc-950 p-6">
+    <View 
+      className="flex-1 bg-[#f4f4f5] dark:bg-[#09090b] px-6"
+    >
+      <View className="pt-16 pb-6 px-2">
+        <Text className="text-3xl font-bold text-zinc-900 dark:text-white">Generator</Text>
+      </View>
       
-      {/* Segmented Control */}
-      <View className="flex-row bg-zinc-900 border border-zinc-800 rounded-full p-1 mb-6">
+      {/* Generated Result Card */}
+      <View className="flex-row bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-full p-1 mb-6 shadow-sm">
         <TouchableOpacity 
-          className={`flex-1 py-3 items-center rounded-full ${mode === 'password' ? 'bg-blue-100' : 'bg-transparent'}`}
+          className={`flex-1 py-3 items-center rounded-full ${mode === 'password' ? 'bg-brand' : 'bg-transparent'}`}
           onPress={() => setMode('password')}
         >
-          <Text className={`font-semibold ${mode === 'password' ? 'text-blue-900' : 'text-zinc-400'}`}>Password</Text>
+          <Text className={`font-semibold ${mode === 'password' ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>Password</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          className={`flex-1 py-3 items-center rounded-full ${mode === 'passphrase' ? 'bg-blue-100' : 'bg-transparent'}`}
+          className={`flex-1 py-3 items-center rounded-full ${mode === 'passphrase' ? 'bg-brand' : 'bg-transparent'}`}
           onPress={() => setMode('passphrase')}
         >
-          <Text className={`font-semibold ${mode === 'passphrase' ? 'text-blue-900' : 'text-zinc-400'}`}>Passphrase</Text>
+          <Text className={`font-semibold ${mode === 'passphrase' ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>Passphrase</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          className={`flex-1 py-3 items-center rounded-full ${mode === 'username' ? 'bg-blue-100' : 'bg-transparent'}`}
+          className={`flex-1 py-3 items-center rounded-full ${mode === 'username' ? 'bg-brand' : 'bg-transparent'}`}
           onPress={() => setMode('username')}
         >
-          <Text className={`font-semibold ${mode === 'username' ? 'text-blue-900' : 'text-zinc-400'}`}>Username</Text>
+          <Text className={`font-semibold ${mode === 'username' ? 'text-white' : 'text-zinc-600 dark:text-zinc-400'}`}>Username</Text>
         </TouchableOpacity>
       </View>
 
       {/* Result Display */}
-      <View className="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 items-center mb-6 relative">
-        <Text className="text-white text-3xl font-mono text-center tracking-widest mb-4">
+      <View className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 items-center mb-6 shadow-sm relative">
+        <Text className="text-zinc-900 dark:text-white text-3xl font-mono text-center tracking-widest mb-4">
           {password || 'Select options'}
         </Text>
         <PasswordStrength password={password} />
         
-        <View className="flex-row mt-6 space-x-4 gap-4">
-          <TouchableOpacity onPress={generate} className="bg-zinc-800 p-3 rounded-xl flex-row items-center">
-            <RefreshCw color="#FFF" size={20} />
-            <Text className="text-white ml-2 font-semibold">Regenerate</Text>
+        <View className="flex-row mt-6 gap-4 w-full justify-center">
+          <TouchableOpacity onPress={generate} className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl flex-row items-center justify-center">
+            <RefreshCw color="#6B7280" size={20} />
+            <Text className="text-zinc-900 dark:text-white ml-2 font-semibold">Regenerate</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={copyToClipboard} className="bg-zinc-800 p-3 rounded-xl flex-row items-center">
-            <Copy color="#FFF" size={20} />
-            <Text className="text-white ml-2 font-semibold">Copy</Text>
+          <TouchableOpacity onPress={copyToClipboard} className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl flex-row items-center justify-center">
+            <Copy color="#6B7280" size={20} />
+            <Text className="text-zinc-900 dark:text-white ml-2 font-semibold">Copy</Text>
           </TouchableOpacity>
         </View>
 
-        <View className="flex-row space-x-4 gap-4 mt-6">
-        <TouchableOpacity 
-          className="flex-1 bg-zinc-900 p-4 rounded-xl items-center border border-zinc-800"
-          onPress={handleCreateLogin}
-        >
-          <Text className="text-white font-semibold">{mode === 'username' ? 'Create with Username' : 'Create Login'}</Text>
-        </TouchableOpacity>
-      </View>
+        <View className="flex-row gap-4 mt-4 w-full">
+          <TouchableOpacity 
+            className="flex-1 bg-brand p-4 rounded-xl items-center"
+            onPress={handleCreateLogin}
+          >
+            <Text className="text-white font-semibold text-lg">{mode === 'username' ? 'Create with Username' : 'Create Login'}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
@@ -280,23 +285,23 @@ export default function GeneratorScreen() {
         contentContainerStyle={{ paddingBottom: 40 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Text className="text-white font-bold text-xl mb-4">Options</Text>
+        <Text className="text-zinc-900 dark:text-white font-bold text-xl mb-4">Options</Text>
 
         {mode === 'password' && (
           <>
-            <View className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mb-4">
-              <Text className="text-white font-semibold text-base mb-3">Length</Text>
+            <View className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-4 shadow-sm">
+              <Text className="text-zinc-900 dark:text-white font-semibold text-base mb-3">Length</Text>
               <TextInput 
-                className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg font-semibold"
+                className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-lg font-semibold"
                 keyboardType="numeric"
                 value={lengthStr}
                 onChangeText={setLengthStr}
                 autoCapitalize="none"
               />
-              <Text className="text-zinc-500 text-xs mt-3">Value must be between {calculatedMinLength} and 128. Use 14 characters or more to generate a strong password.</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 text-xs mt-3">Value must be between {calculatedMinLength} and 128. Use 14 characters or more to generate a strong password.</Text>
             </View>
 
-            <View className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mb-4">
+            <View className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-4 shadow-sm">
               <View className="flex-row flex-wrap">
                 <CustomCheckbox label="A-Z" checked={useUppercase} onPress={() => handleToggle('upper')} />
                 <CustomCheckbox label="a-z" checked={useLowercase} onPress={() => handleToggle('lower')} />
@@ -306,11 +311,11 @@ export default function GeneratorScreen() {
               
               <View className="flex-row mt-4 space-x-4 gap-4">
                 <View className="flex-1">
-                  <Text className="text-white font-semibold text-sm mb-2">Minimum numbers</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-2">Minimum numbers</Text>
                   <NumericStepper value={minNumbers} onChange={setMinNumbers} disabled={!useNumbers} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-white font-semibold text-sm mb-2">Minimum special</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-2">Minimum special</Text>
                   <NumericStepper value={minSymbols} onChange={setMinSymbols} disabled={!useSymbols} />
                 </View>
               </View>
@@ -324,22 +329,22 @@ export default function GeneratorScreen() {
 
         {mode === 'passphrase' && (
           <>
-            <View className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mb-4">
-              <Text className="text-white font-semibold text-base mb-3">Number of words</Text>
+            <View className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-4 shadow-sm">
+              <Text className="text-zinc-900 dark:text-white font-semibold text-base mb-3">Number of words</Text>
               <TextInput 
-                className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg font-semibold"
+                className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-lg font-semibold"
                 keyboardType="numeric"
                 value={wordsCountStr}
                 onChangeText={setWordsCountStr}
                 autoCapitalize="none"
               />
-              <Text className="text-zinc-500 text-xs mt-3">Value must be between 3 and 20. Use 6 words or more to generate a strong passphrase.</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 text-xs mt-3">Value must be between 3 and 20. Use 6 words or more to generate a strong passphrase.</Text>
             </View>
 
-            <View className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mb-4">
-              <Text className="text-white font-semibold text-base mb-3">Word separator</Text>
+            <View className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-4 shadow-sm">
+              <Text className="text-zinc-900 dark:text-white font-semibold text-base mb-3">Word separator</Text>
               <TextInput 
-                className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg font-semibold mb-6"
+                className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-lg font-semibold mb-6"
                 value={wordSeparator}
                 onChangeText={setWordSeparator}
                 autoCapitalize="none"
@@ -353,8 +358,8 @@ export default function GeneratorScreen() {
 
         {mode === 'username' && (
           <>
-            <View className="bg-zinc-900 p-5 rounded-2xl border border-zinc-800 mb-4">
-              <Text className="text-white font-semibold text-base mb-4">Type</Text>
+            <View className="bg-white dark:bg-zinc-900 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 mb-4 shadow-sm">
+              <Text className="text-zinc-900 dark:text-white font-semibold text-base mb-4">Type</Text>
               
               <View className="mb-6 z-10 relative">
                 <Dropdown 
@@ -370,9 +375,9 @@ export default function GeneratorScreen() {
 
               {usernameType === 'string' && (
                 <View>
-                  <Text className="text-white font-semibold text-sm mb-3 ml-1">Length</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-3 ml-1">Length</Text>
                   <TextInput 
-                    className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-base font-semibold mb-6"
+                    className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-base font-semibold mb-6"
                     keyboardType="numeric"
                     value={unameStringLength}
                     onChangeText={setUnameStringLength}
@@ -388,11 +393,11 @@ export default function GeneratorScreen() {
                   
                   <View className="flex-row mt-4 space-x-4 gap-4">
                     <View className="flex-1">
-                      <Text className="text-white font-semibold text-sm mb-2">Minimum numbers</Text>
+                      <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-2">Minimum numbers</Text>
                       <NumericStepper value={unameMinNumbers} onChange={setUnameMinNumbers} disabled={!unameUseNumbers} />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white font-semibold text-sm mb-2">Minimum special</Text>
+                      <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-2">Minimum special</Text>
                       <NumericStepper value={unameMinSymbols} onChange={setUnameMinSymbols} disabled={!unameUseSymbols} />
                     </View>
                   </View>
@@ -405,13 +410,13 @@ export default function GeneratorScreen() {
 
               {usernameType === 'catchall' && (
                 <View>
-                  <Text className="text-white font-semibold text-sm mb-3 ml-1">Domain name</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-3 ml-1">Domain name</Text>
                   <TextInput 
-                    className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-base font-semibold"
+                    className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-base font-semibold"
                     value={unameDomain}
                     onChangeText={setUnameDomain}
                     placeholder="example.com"
-                    placeholderTextColor="#52525B"
+                    placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                   />
                 </View>
@@ -419,13 +424,13 @@ export default function GeneratorScreen() {
 
               {usernameType === 'plus' && (
                 <View>
-                  <Text className="text-white font-semibold text-sm mb-3 ml-1">Email</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold text-sm mb-3 ml-1">Email</Text>
                   <TextInput 
-                    className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-base font-semibold"
+                    className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-base font-semibold"
                     value={unameEmail}
                     onChangeText={setUnameEmail}
                     placeholder="your@email.com"
-                    placeholderTextColor="#52525B"
+                    placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                   />
                 </View>
@@ -443,24 +448,24 @@ export default function GeneratorScreen() {
 function CustomCheckbox({ label, checked, onPress }: { label: string, checked: boolean, onPress: () => void }) {
   return (
     <TouchableOpacity onPress={onPress} className="flex-row items-center mr-6 mb-2" activeOpacity={0.7}>
-      <View className={`w-5 h-5 rounded mr-3 items-center justify-center border ${checked ? 'bg-blue-500 border-blue-500' : 'border-zinc-600 bg-zinc-950'}`}>
+      <View className={`w-5 h-5 rounded mr-3 items-center justify-center border ${checked ? 'bg-brand border-brand' : 'border-zinc-300 dark:border-zinc-600 bg-zinc-50 dark:bg-zinc-950'}`}>
         {checked && <Check size={14} color="#FFF" strokeWidth={3} />}
       </View>
-      <Text className="text-white font-semibold text-base">{label}</Text>
+      <Text className="text-zinc-900 dark:text-white font-semibold text-base">{label}</Text>
     </TouchableOpacity>
   );
 }
 
 function NumericStepper({ value, onChange, disabled }: { value: number, onChange: (v: number) => void, disabled: boolean }) {
   return (
-    <View className={`flex-row items-center justify-between bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 ${disabled ? 'opacity-50' : ''}`}>
-      <Text className="text-white font-semibold text-lg">{value}</Text>
+    <View className={`flex-row items-center justify-between bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl px-4 py-3 ${disabled ? 'opacity-50' : ''}`}>
+      <Text className="text-zinc-900 dark:text-white font-semibold text-lg">{value}</Text>
       <View>
-        <TouchableOpacity onPress={() => !disabled && onChange(value + 1)} className="mb-1 p-1 bg-zinc-900 rounded" disabled={disabled}>
-          <ChevronUp size={14} color="#9CA3AF" strokeWidth={3} />
+        <TouchableOpacity onPress={() => !disabled && onChange(value + 1)} className="mb-1 p-1 bg-zinc-200 dark:bg-zinc-900 rounded" disabled={disabled}>
+          <ChevronUp size={14} color="#6B7280" strokeWidth={3} />
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => !disabled && onChange(Math.max(0, value - 1))} className="p-1 bg-zinc-900 rounded" disabled={disabled}>
-          <ChevronDown size={14} color="#9CA3AF" strokeWidth={3} />
+        <TouchableOpacity onPress={() => !disabled && onChange(Math.max(0, value - 1))} className="p-1 bg-zinc-200 dark:bg-zinc-900 rounded" disabled={disabled}>
+          <ChevronDown size={14} color="#6B7280" strokeWidth={3} />
         </TouchableOpacity>
       </View>
     </View>
@@ -479,27 +484,27 @@ function Dropdown({ options, selected, onSelect }: {
   return (
     <>
       <TouchableOpacity 
-        className="bg-zinc-950 border border-zinc-800 rounded-xl p-4 flex-row justify-between items-center"
+        className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl p-4 flex-row justify-between items-center"
         onPress={() => setOpen(true)}
       >
-        <Text className="text-white font-semibold">{selectedOption?.label}</Text>
+        <Text className="text-zinc-900 dark:text-white font-semibold">{selectedOption?.label}</Text>
         <ChevronDown size={20} color="#9CA3AF" />
       </TouchableOpacity>
       
       <Modal visible={open} transparent animationType="fade">
         <TouchableOpacity className="flex-1 bg-black/50 justify-center p-6" onPress={() => setOpen(false)} activeOpacity={1}>
-          <View className="bg-zinc-900 rounded-2xl border border-zinc-700 overflow-hidden">
+          <View className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-700 overflow-hidden shadow-xl">
             {options.map((opt, idx) => (
               <TouchableOpacity 
                 key={opt.value}
-                className={`p-5 ${idx < options.length - 1 ? 'border-b border-zinc-800' : ''} ${selected === opt.value ? 'bg-blue-500/20' : ''}`}
+                className={`p-5 ${idx < options.length - 1 ? 'border-b border-zinc-100 dark:border-zinc-800' : ''} ${selected === opt.value ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
                 onPress={() => {
                   onSelect(opt.value);
                   setOpen(false);
                 }}
               >
-                <Text className={`font-semibold ${selected === opt.value ? 'text-blue-500' : 'text-white'}`}>{opt.label}</Text>
-                {opt.description && <Text className="text-zinc-500 text-xs mt-1">{opt.description}</Text>}
+                <Text className={`font-semibold text-base mb-1 ${selected === opt.value ? 'text-brand dark:text-blue-400' : 'text-zinc-900 dark:text-white'}`}>{opt.label}</Text>
+                {opt.description && <Text className="text-zinc-500 dark:text-zinc-400 text-xs">{opt.description}</Text>}
               </TouchableOpacity>
             ))}
           </View>

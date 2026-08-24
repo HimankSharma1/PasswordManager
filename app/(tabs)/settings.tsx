@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Switch, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, TextInput, Modal, ActivityIndicator, Switch, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
 import { CustomAlert as Alert } from '../../utils/alert';
-import { LogOut, Download, Upload, Cloud, Plus, Info, Fingerprint, Eye, EyeOff, Lock } from 'lucide-react-native';
+import { LogOut, Download, Upload, Cloud, Plus, Info, Fingerprint, Eye, EyeOff, Lock, Shield, Key, FileText, ShieldCheck, Sun, Moon, Hash, Settings as SettingsIcon } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useVaultStore } from '../../store/useVaultStore';
+import { useThemeStore } from '../../store/useThemeStore';
 import { exportVaultFile, pickVaultFile, processVaultFile } from '../../services/exportService';
 import { uploadToCloud } from '../../services/cloudBackupService';
 import { saveVault, destroyVault } from '../../services/storageService';
@@ -76,6 +77,7 @@ export default function SettingsScreen() {
   const [importMode, setImportMode] = useState<'native' | 'third_party'>('native');
   const [selectedThirdPartyService, setSelectedThirdPartyService] = useState<ImportFormatType | null>(null);
   const [thirdPartyModalVisible, setThirdPartyModalVisible] = useState(false);
+  const { theme, setTheme } = useThemeStore();
   
   const [importFolderModalVisible, setImportFolderModalVisible] = useState(false);
   const [importedEntries, setImportedEntries] = useState<any[]>([]);
@@ -89,8 +91,8 @@ export default function SettingsScreen() {
   
 
   const [newFolderName, setNewFolderName] = useState('');
-  const [newFolderColor, setNewFolderColor] = useState('#3B82F6');
-  const FOLDER_COLORS = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#6366F1'];
+  const [newFolderColor, setNewFolderColor] = useState('#F5B971');
+  const FOLDER_COLORS = ['#F5B971', '#EF4444', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#6366F1'];
 
   const executeExport = async (useMasterPassword: boolean) => {
     if (!mek) return;
@@ -341,63 +343,95 @@ export default function SettingsScreen() {
 
   return (
     <ScrollView 
-      className="flex-1 bg-zinc-950 p-4"
+      className="flex-1 bg-[#f4f4f5] dark:bg-[#09090b]"
+      contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
       keyboardShouldPersistTaps="handled"
     >
-      <View className="mb-8">
-        <Text className="text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Data Management</Text>
-        <View className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
-          <SettingRow icon={<Upload size={20} color="#3B82F6" />} label="Export Vault" onPress={() => requestAuth('Authenticate to Export', () => setExportModalVisible(true))} disabled={isProcessing} />
-          <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<Download size={20} color="#10B981" />} label="Import .vault Backup" onPress={() => requestAuth('Authenticate to Import', handlePickFile)} disabled={isProcessing} />
-          <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<Download size={20} color="#F59E0B" />} label="Import from Other Services" onPress={() => setThirdPartyModalVisible(true)} disabled={isProcessing} />
-          <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<Cloud size={20} color="#8B5CF6" />} label="Cloud Backup" onPress={() => Alert.alert('Coming Soon', 'Cloud backup functionality is currently under development and will be available in a future update.')} disabled={isProcessing} rightElement={<Lock size={16} color="#52525B" />} />
-        </View>
+      <View className="pt-16 pb-6 px-2">
+        <Text className="text-3xl font-bold text-zinc-900 dark:text-white">Settings</Text>
       </View>
-
-      <View className="mb-8">
-        <Text className="text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Security</Text>
-        <View className="bg-zinc-900 rounded-2xl border border-zinc-800 overflow-hidden">
+      <View className="mb-6">
+        <Text className="text-zinc-500 dark:text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Appearance</Text>
+        <View className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
           <SettingRow 
-            icon={<Fingerprint size={20} color="#3B82F6" />} 
-            label="Biometric Login" 
+            icon={theme === 'dark' ? <Moon size={20} color="#8B5CF6" /> : <Sun size={20} color="#F59E0B" />} 
+            label="Dark Mode" 
+            subtitle={theme === 'dark' ? 'On' : 'Off'}
             rightElement={
               <Switch 
-                value={biometricsEnabled} 
-                onValueChange={handleToggleBiometrics} 
-                trackColor={{ false: '#3f3f46', true: '#3b82f6' }}
+                value={theme === 'dark'} 
+                onValueChange={(val) => setTheme(val ? 'dark' : 'light')} 
+                trackColor={{ false: '#e4e4e7', true: '#F5B971' }}
                 thumbColor="#ffffff"
               />
             }
           />
-          <View className="h-[1px] bg-zinc-800 ml-12" />
-          <SettingRow icon={<LogOut size={20} color="#F59E0B" />} label="Lock Vault" onPress={handleLock} />
         </View>
       </View>
 
-      <View className="mb-8">
-        <Text className="text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Danger Zone</Text>
-        <View className="bg-zinc-900 rounded-2xl border border-red-900/30 overflow-hidden">
-          <SettingRow icon={<LogOut size={20} color="#EF4444" />} label="Destroy Vault" onPress={handleReset} destructive />
+      <View className="mb-6">
+        <Text className="text-zinc-500 dark:text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Security</Text>
+        <View className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+          <SettingRow icon={<Key size={20} color="#52525B" />} label="Change Pass Key" subtitle="AES-256 encryption key — re-encrypts all files" onPress={() => Alert.alert('Coming Soon', 'This feature is under development.')} rightElement={<Lock size={16} color="#D9A05B" />} />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow 
+            icon={<Fingerprint size={20} color="#3B82F6" />} 
+            label="Biometric Lock" 
+            subtitle={biometricsEnabled ? 'Enabled — tap to disable' : 'Disabled — tap to enable'}
+            rightElement={
+              <Switch 
+                value={biometricsEnabled} 
+                onValueChange={handleToggleBiometrics} 
+                trackColor={{ false: '#e4e4e7', true: '#F5B971' }}
+                thumbColor="#ffffff"
+              />
+            }
+          />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow icon={<LogOut size={20} color="#F5B971" />} label="Lock Vault" subtitle="Returns to login screen" onPress={handleLock} />
         </View>
       </View>
 
-      <Text className="text-zinc-600 text-center text-sm mt-4">Zero-Knowledge Architecture</Text>
-      <Text className="text-zinc-700 text-center text-xs mt-1">AES-256-GCM Encrypted</Text>
+      <View className="mb-6">
+        <Text className="text-zinc-500 dark:text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Data</Text>
+        <View className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+          <SettingRow icon={<Upload size={20} color="#F5B971" />} label="Export Vault" subtitle="Create an encrypted backup file" onPress={() => requestAuth('Authenticate to Export', () => setExportModalVisible(true))} disabled={isProcessing} />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow icon={<Download size={20} color="#10B981" />} label="Import .vault Backup" subtitle="Restore from a previous backup file" onPress={() => requestAuth('Authenticate to Import', handlePickFile)} disabled={isProcessing} />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow icon={<Download size={20} color="#F59E0B" />} label="Import from Other Services" subtitle="CSV import from Bitwarden, etc." onPress={() => setThirdPartyModalVisible(true)} disabled={isProcessing} />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow icon={<Cloud size={20} color="#52525B" />} label="Cloud Backup" subtitle="Coming soon" onPress={() => Alert.alert('Coming Soon', 'Cloud backup functionality is currently under development.')} disabled={isProcessing} rightElement={<Lock size={16} color="#D9A05B" />} />
+        </View>
+      </View>
+
+      <View className="mb-6">
+        <Text className="text-zinc-500 dark:text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">About</Text>
+        <View className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 overflow-hidden shadow-sm">
+          <SettingRow icon={<FileText size={20} color="#52525B" />} label="Terms of Use" onPress={() => {}} rightElement={<Lock size={16} color="#D9A05B" />} />
+          <View className="h-[1px] bg-zinc-100 dark:bg-zinc-800 ml-16" />
+          <SettingRow icon={<Info size={20} color="#10B981" />} label="Version" subtitle="nkrypt v2.0.0" onPress={() => {}} />
+        </View>
+      </View>
+
+      <View className="mb-12">
+        <Text className="text-zinc-500 dark:text-zinc-400 uppercase text-xs font-bold tracking-wider mb-2 ml-2">Danger Zone</Text>
+        <View className="bg-red-50 dark:bg-zinc-900 rounded-2xl border border-red-200 dark:border-red-900/30 overflow-hidden shadow-sm">
+          <SettingRow icon={<LogOut size={20} color="#EF4444" />} label="Wipe All Data" subtitle="Permanently deletes everything" onPress={handleReset} destructive />
+        </View>
+      </View>
 
       {/* Cloud Backup Modal */}
-      <Modal visible={cloudModalVisible} animationType="slide" transparent>
+      <Modal visible={cloudModalVisible} animationType="slide" transparent onRequestClose={() => setCloudModalVisible(false)}>
         <View className="flex-1 bg-black/80 justify-center p-6">
-          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-            <Text className="text-xl font-bold text-white mb-2">Cloud Backup</Text>
-            <Text className="text-zinc-400 mb-6">Enter a pre-signed S3 PUT URL to securely upload your encrypted vault.</Text>
+          <View className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700">
+            <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Cloud Backup</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 mb-6">Enter a pre-signed S3 PUT URL to securely upload your encrypted vault.</Text>
             
             <TextInput
-              className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl mb-6"
+              className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl mb-6"
               placeholder="https://bucket.s3.amazonaws.com/..."
-              placeholderTextColor="#52525B"
+              placeholderTextColor="#9CA3AF"
               value={presignedUrl}
               onChangeText={setPresignedUrl}
               autoCapitalize="none"
@@ -406,10 +440,10 @@ export default function SettingsScreen() {
             
             <View className="flex-row space-x-4 gap-4">
               <TouchableOpacity 
-                className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                className="flex-1 bg-zinc-200 dark:bg-zinc-800 p-4 rounded-xl items-center"
                 onPress={() => setCloudModalVisible(false)}
               >
-                <Text className="text-white font-semibold">Cancel</Text>
+                <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 className={`flex-1 bg-purple-600 p-4 rounded-xl items-center ${!presignedUrl || isProcessing ? 'opacity-50' : ''}`}
@@ -424,17 +458,17 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Export Password Modal */}
-      <Modal visible={exportModalVisible} animationType="slide" transparent>
+      <Modal visible={exportModalVisible} animationType="slide" transparent onRequestClose={() => setExportModalVisible(false)}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <View className="flex-1 bg-black/80 justify-end">
-            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12">
-              <Text className="text-xl font-bold text-white mb-2">Export Vault</Text>
-              <Text className="text-zinc-400 mb-6">Your exported file will be fully encrypted. Choose how you want to encrypt it.</Text>
+          <View className="flex-1 bg-black/60 justify-end">
+            <View className="bg-white dark:bg-zinc-900 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-700 p-6 pb-12">
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Export Vault</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-6">Your exported file will be fully encrypted. Choose how you want to encrypt it.</Text>
               
               {!showCustomExportInput ? (
                 <View className="gap-4 mb-6">
                   <TouchableOpacity 
-                    className="bg-blue-600 p-4 rounded-xl flex-row items-center"
+                    className="bg-brand p-4 rounded-xl flex-row items-center"
                     onPress={() => handleExport(true)}
                     disabled={isProcessing}
                   >
@@ -448,22 +482,22 @@ export default function SettingsScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                    className="bg-zinc-800 p-4 rounded-xl flex-row items-center"
+                    className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl flex-row items-center"
                     onPress={() => setShowCustomExportInput(true)}
                   >
                     <View className="flex-1">
-                      <Text className="text-white font-bold text-lg">Use Custom Password</Text>
-                      <Text className="text-zinc-400 text-sm">Create a one-time password specifically for this export file.</Text>
+                      <Text className="text-zinc-900 dark:text-white font-bold text-lg">Use Custom Password</Text>
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm">Create a one-time password specifically for this export file.</Text>
                     </View>
                   </TouchableOpacity>
                 </View>
               ) : (
                 <View className="mb-6">
-                  <Text className="text-zinc-400 mb-2 ml-1">Custom Export Password</Text>
+                  <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1">Custom Export Password</Text>
                   <TextInput
-                    className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg text-center mb-6"
+                    className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-lg text-center mb-6"
                     placeholder="Enter custom password"
-                    placeholderTextColor="#52525B"
+                    placeholderTextColor="#9CA3AF"
                     secureTextEntry
                     value={exportPassword}
                     onChangeText={setExportPassword}
@@ -474,7 +508,7 @@ export default function SettingsScreen() {
                     textContentType="none"
                   />
                   <TouchableOpacity 
-                    className={`bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${(!exportPassword || isProcessing) ? 'opacity-50' : ''}`}
+                    className={`bg-brand p-4 rounded-xl items-center flex-row justify-center ${(!exportPassword || isProcessing) ? 'opacity-50' : ''}`}
                     onPress={() => handleExport(false)}
                     disabled={!exportPassword || isProcessing}
                   >
@@ -488,14 +522,14 @@ export default function SettingsScreen() {
               )}
               
               <TouchableOpacity 
-                className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+                className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center mb-4"
                 onPress={() => {
                   setExportModalVisible(false);
                   setShowCustomExportInput(false);
                   setExportPassword('');
                 }}
               >
-                <Text className="text-white font-semibold">Cancel</Text>
+                <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -503,28 +537,28 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Import Password Modal */}
-      <Modal visible={importModalVisible} animationType="slide" transparent>
+      <Modal visible={importModalVisible} animationType="slide" transparent onRequestClose={() => setImportModalVisible(false)}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <View className="flex-1 bg-black/80 justify-end">
-            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12">
-              <Text className="text-xl font-bold text-white mb-2">Import Vault</Text>
+          <View className="flex-1 bg-black/60 justify-end">
+            <View className="bg-white dark:bg-zinc-900 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-700 p-6 pb-12">
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Import Vault</Text>
               
-              <View className="bg-zinc-950 p-4 rounded-xl border border-zinc-800 mb-6 flex-row items-center mt-4">
+              <View className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 mb-6 flex-row items-center mt-4">
                 <View className="w-10 h-10 rounded-full bg-green-500/20 items-center justify-center mr-4">
                   <Upload color="#10B981" size={20} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-white font-bold">File Selected</Text>
+                  <Text className="text-zinc-900 dark:text-white font-bold">File Selected</Text>
                   <Text className="text-zinc-500 text-xs" numberOfLines={1}>{selectedFileUri}</Text>
                 </View>
               </View>
 
-              <Text className="text-zinc-400 mb-2 ml-1">Password</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1">Password</Text>
               <View className="relative mb-6 justify-center">
                 <TextInput
-                  className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl text-lg text-center pr-12"
+                  className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl text-lg text-center pr-12"
                   placeholder="Enter password to decrypt file"
-                  placeholderTextColor="#52525B"
+                  placeholderTextColor="#9CA3AF"
                   secureTextEntry={!showImportPassword}
                   value={importPassword}
                   onChangeText={setImportPassword}
@@ -544,7 +578,7 @@ export default function SettingsScreen() {
 
               <View className="flex-row gap-4 mb-4">
                 <TouchableOpacity 
-                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center"
                   onPress={() => {
                     setImportModalVisible(false);
                     setImportPassword('');
@@ -553,10 +587,10 @@ export default function SettingsScreen() {
                   }}
                   disabled={isProcessing}
                 >
-                  <Text className="text-white font-semibold">Cancel</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  className={`flex-1 bg-blue-600 p-4 rounded-xl flex-row items-center justify-center ${(!importPassword || isProcessing) ? 'opacity-50' : ''}`}
+                  className={`flex-1 bg-brand p-4 rounded-xl flex-row items-center justify-center ${(!importPassword || isProcessing) ? 'opacity-50' : ''}`}
                   onPress={handleImportSubmit}
                   disabled={!importPassword || isProcessing}
                 >
@@ -573,11 +607,11 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Third Party Import Selection Modal */}
-      <Modal visible={thirdPartyModalVisible} animationType="slide" transparent>
-        <View className="flex-1 bg-black/80 justify-end">
-          <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
-            <Text className="text-xl font-bold text-white mb-2">Import from Other Services</Text>
-            <Text className="text-zinc-400 mb-6">Select the format of the file you exported from your previous password manager.</Text>
+      <Modal visible={thirdPartyModalVisible} animationType="slide" transparent onRequestClose={() => setThirdPartyModalVisible(false)}>
+        <View className="flex-1 bg-black/60 justify-end">
+          <View className="bg-white dark:bg-zinc-900 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-700 p-6 pb-12 max-h-[80%]">
+            <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Import from Other Services</Text>
+            <Text className="text-zinc-500 dark:text-zinc-400 mb-6">Select the format of the file you exported from your previous password manager.</Text>
             
             <ScrollView showsVerticalScrollIndicator={false} className="mb-6" keyboardShouldPersistTaps="handled">
               {[
@@ -592,12 +626,12 @@ export default function SettingsScreen() {
                   onPress={() => handlePickThirdPartyFile(item.format as any)}
                 >
                   <View className="flex-row items-center">
-                    <View className="w-10 h-10 rounded-full bg-blue-500/20 items-center justify-center mr-4">
-                      {item.format === 'Unsupported Formats Help' ? <Info color="#3B82F6" size={20} /> : <Download color="#3B82F6" size={20} />}
+                    <View className="w-10 h-10 rounded-full bg-brand/20 items-center justify-center mr-4">
+                      {item.format === 'Unsupported Formats Help' ? <Info color="#F5B971" size={20} /> : <Download color="#F5B971" size={20} />}
                     </View>
                     <View>
-                      <Text className="text-white font-semibold text-lg">{item.name}</Text>
-                      <Text className="text-zinc-500 text-sm mt-1">{item.desc}</Text>
+                      <Text className="text-zinc-900 dark:text-white font-semibold text-lg">{item.name}</Text>
+                      <Text className="text-zinc-500 dark:text-zinc-400 text-sm mt-1">{item.desc}</Text>
                     </View>
                   </View>
                 </TouchableOpacity>
@@ -605,35 +639,35 @@ export default function SettingsScreen() {
             </ScrollView>
             
             <TouchableOpacity 
-              className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+              className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center mb-4"
               onPress={() => setThirdPartyModalVisible(false)}
             >
-              <Text className="text-white font-semibold">Cancel</Text>
+              <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* Import Target Folder Modal */}
-      <Modal visible={importFolderModalVisible} animationType="slide" transparent>
+      <Modal visible={importFolderModalVisible} animationType="slide" transparent onRequestClose={() => setImportFolderModalVisible(false)}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <View className="flex-1 bg-black/80 justify-end">
-            <View className="bg-zinc-900 rounded-t-3xl border-t border-zinc-700 p-6 pb-12 max-h-[80%]">
-              <Text className="text-xl font-bold text-white mb-2">Import Location</Text>
-              <Text className="text-zinc-400 mb-6">Select a folder to add these {importedEntries.length} imported entries into.</Text>
+          <View className="flex-1 bg-black/60 justify-end">
+            <View className="bg-white dark:bg-zinc-900 rounded-t-3xl border-t border-zinc-200 dark:border-zinc-700 p-6 pb-12 max-h-[80%]">
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Import Location</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-6">Select a folder to add these {importedEntries.length} imported entries into.</Text>
               
               <ScrollView showsVerticalScrollIndicator={false} className="mb-6" keyboardShouldPersistTaps="handled">
                 {/* New Folder Option */}
-                <View className="mb-4 p-4 border border-zinc-700 rounded-xl bg-zinc-950">
+                <View className="mb-4 p-4 border border-zinc-200 dark:border-zinc-700 rounded-xl bg-zinc-50 dark:bg-zinc-950">
                   <TextInput
-                    className="text-white font-semibold text-lg border-b border-zinc-800 pb-2 mb-4"
+                    className="text-zinc-900 dark:text-white font-semibold text-lg border-b border-zinc-200 dark:border-zinc-800 pb-2 mb-4"
                     placeholder="New Folder Name"
-                    placeholderTextColor="#52525B"
+                    placeholderTextColor="#9CA3AF"
                     value={newFolderName}
                     onChangeText={setNewFolderName}
                     autoCapitalize="none"
                   />
-                  <Text className="text-zinc-400 mb-2 ml-1 text-sm">Color</Text>
+                  <Text className="text-zinc-500 dark:text-zinc-400 mb-2 ml-1 text-sm">Color</Text>
                   <View className="flex-row flex-wrap gap-3 mb-6">
                     {FOLDER_COLORS.map(color => (
                       <TouchableOpacity
@@ -645,7 +679,7 @@ export default function SettingsScreen() {
                     ))}
                   </View>
                   <TouchableOpacity 
-                    className={`bg-blue-600 p-4 rounded-xl items-center flex-row justify-center ${(!newFolderName.trim() || isProcessing) ? 'opacity-50' : ''}`}
+                    className={`bg-brand p-4 rounded-xl items-center flex-row justify-center ${(!newFolderName.trim() || isProcessing) ? 'opacity-50' : ''}`}
                     onPress={handleCreateNewFolderAndImport}
                     disabled={!newFolderName.trim() || isProcessing}
                   >
@@ -660,24 +694,24 @@ export default function SettingsScreen() {
                 {useVaultStore.getState().folders.map(folder => (
                   <TouchableOpacity 
                     key={folder.id} 
-                    className="flex-row items-center p-4 border-b border-zinc-800"
+                    className="flex-row items-center p-4 border-b border-zinc-100 dark:border-zinc-800"
                     onPress={() => finalizeImport(folder.id)}
                   >
                     <View className="w-4 h-4 rounded-full mr-4" style={{ backgroundColor: folder.color }} />
-                    <Text className="text-white font-semibold text-lg">{folder.name}</Text>
+                    <Text className="text-zinc-900 dark:text-white font-semibold text-lg">{folder.name}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
               
               <TouchableOpacity 
-                className="bg-zinc-800 p-4 rounded-xl items-center mb-4"
+                className="bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center mb-4"
                 onPress={() => {
                   setImportFolderModalVisible(false);
                   setSelectedFileUri(null);
                   setImportedEntries([]);
                 }}
               >
-                <Text className="text-white font-semibold">Cancel</Text>
+                <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -701,30 +735,30 @@ export default function SettingsScreen() {
         }}
       />
       {/* Destroy Vault Modal */}
-      <Modal visible={destroyModalVisible} animationType="slide" transparent>
+      <Modal visible={destroyModalVisible} animationType="slide" transparent onRequestClose={() => setDestroyModalVisible(false)}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <View className="flex-1 bg-black/80 justify-center p-6">
-            <View className="bg-zinc-900 p-6 rounded-3xl border border-red-900/30">
+          <View className="flex-1 bg-black/60 justify-center p-6">
+            <View className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-red-200 dark:border-red-900/30">
               <Text className="text-xl font-bold text-red-500 mb-2">Warning: Destroy Vault</Text>
-              <Text className="text-zinc-400 mb-6">This action will permanently delete all your encrypted data, passwords, and security settings. This cannot be undone.</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-6">This action will permanently delete all your encrypted data, passwords, and security settings. This cannot be undone.</Text>
               
               <TouchableOpacity 
                 className="flex-row items-center space-x-3 mb-6 gap-3"
                 onPress={() => setUnderstandDestroy(!understandDestroy)}
                 activeOpacity={0.7}
               >
-                <View className={`w-6 h-6 rounded border items-center justify-center ${understandDestroy ? 'bg-red-500 border-red-500' : 'border-zinc-500'}`}>
+                <View className={`w-6 h-6 rounded border items-center justify-center ${understandDestroy ? 'bg-red-500 border-red-500' : 'border-zinc-300 dark:border-zinc-500'}`}>
                   {understandDestroy && <Text className="text-white font-bold text-xs">✓</Text>}
                 </View>
-                <Text className="text-zinc-300 flex-1">I understand this will permanently delete all my data.</Text>
+                <Text className="text-zinc-600 dark:text-zinc-300 flex-1">I understand this will permanently delete all my data.</Text>
               </TouchableOpacity>
               
               <View className="flex-row gap-4">
                 <TouchableOpacity 
-                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center"
                   onPress={() => setDestroyModalVisible(false)}
                 >
-                  <Text className="text-white font-semibold">Cancel</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
                   className={`flex-1 bg-red-600 p-4 rounded-xl items-center ${!understandDestroy ? 'opacity-50' : ''}`}
@@ -743,22 +777,22 @@ export default function SettingsScreen() {
       </Modal>
 
       {/* Backup Prompt Modal */}
-      <Modal visible={backupPromptVisible} animationType="slide" transparent>
+      <Modal visible={backupPromptVisible} animationType="slide" transparent onRequestClose={() => setBackupPromptVisible(false)}>
         <KeyboardAvoidingView behavior="padding" className="flex-1">
-          <View className="flex-1 bg-black/80 justify-center p-6">
-            <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
-              <Text className="text-xl font-bold text-white mb-2">Create Backup?</Text>
-              <Text className="text-zinc-400 mb-4">Would you like to export your vault to a secure file before destroying it?</Text>
+          <View className="flex-1 bg-black/60 justify-center p-6">
+            <View className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-700">
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">Create Backup?</Text>
+              <Text className="text-zinc-500 dark:text-zinc-400 mb-4">Would you like to export your vault to a secure file before destroying it?</Text>
               
-              <View className="bg-blue-900/30 p-3 rounded-lg border border-blue-800/50 mb-6">
-                <Text className="text-blue-300 text-xs text-center">
+              <View className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-lg border border-blue-200 dark:border-blue-800/50 mb-6">
+                <Text className="text-blue-800 dark:text-blue-300 text-xs text-center">
                   Backup will be automatically saved to:
                   {"\n"}<Text className="font-bold">Documents / Password Manager / vault backup</Text>
                 </Text>
               </View>
               
               <TouchableOpacity 
-                className="bg-blue-600 p-4 rounded-xl items-center mb-4"
+                className="bg-brand p-4 rounded-xl items-center mb-4"
                 onPress={() => {
                   setBackupPromptVisible(false);
                   setIsPreDestroyExport(true);
@@ -770,21 +804,21 @@ export default function SettingsScreen() {
               
               <View className="flex-row gap-4">
                 <TouchableOpacity 
-                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center"
                   onPress={() => {
                     setBackupPromptVisible(false);
                   }}
                 >
-                  <Text className="text-white font-semibold">Cancel</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  className="flex-1 bg-red-900/50 p-4 rounded-xl items-center"
+                  className="flex-1 bg-red-100 dark:bg-red-900/50 p-4 rounded-xl items-center"
                   onPress={() => {
                     setBackupPromptVisible(false);
                     requestAuth('Final Confirmation', executeWipe, false);
                   }}
                 >
-                  <Text className="text-red-400 font-semibold">Skip & Destroy</Text>
+                  <Text className="text-red-700 dark:text-red-400 font-semibold">Skip & Destroy</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -795,17 +829,22 @@ export default function SettingsScreen() {
   );
 }
 
-function SettingRow({ icon, label, onPress, destructive = false, disabled = false, rightElement }: any) {
+function SettingRow({ icon, label, subtitle, onPress, destructive = false, disabled = false, rightElement }: any) {
   return (
     <TouchableOpacity 
       className={`flex-row items-center p-4 ${disabled ? 'opacity-50' : ''}`} 
       onPress={onPress}
-      disabled={disabled || !onPress}
+      disabled={disabled || (!onPress && !rightElement)}
       activeOpacity={onPress ? 0.7 : 1}
     >
-      <View className="w-8">{icon}</View>
-      <Text className={`text-base flex-1 ${destructive ? 'text-red-500 font-semibold' : 'text-white'}`}>{label}</Text>
-      {rightElement && <View>{rightElement}</View>}
+      <View className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 items-center justify-center mr-4">
+        {icon}
+      </View>
+      <View className="flex-1 justify-center">
+        <Text className={`text-base ${destructive ? 'text-red-600 dark:text-red-500 font-semibold' : 'text-zinc-900 dark:text-white'}`}>{label}</Text>
+        {subtitle && <Text className="text-zinc-500 dark:text-zinc-400 text-xs mt-0.5">{subtitle}</Text>}
+      </View>
+      {rightElement ? <View>{rightElement}</View> : (onPress ? <Text className="text-zinc-300 dark:text-zinc-600 text-xl font-light">›</Text> : null)}
     </TouchableOpacity>
   );
 }

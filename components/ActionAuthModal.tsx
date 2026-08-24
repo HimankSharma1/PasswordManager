@@ -95,17 +95,17 @@ export function ActionAuthModal({ visible, title = 'Authenticate', forcePassword
         behavior="padding" 
         className="flex-1"
       >
-        <View className="flex-1 bg-black/80 justify-center p-6">
-          <View className="bg-zinc-900 p-6 rounded-3xl border border-zinc-700">
+        <View className="flex-1 bg-black/60 justify-center p-6">
+          <View className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-xl">
             <>
-              <Text className="text-xl font-bold text-white mb-2">{title}</Text>
-              <Text className="text-zinc-400 mb-6">Enter your Master Password to proceed.</Text>
+              <Text className="text-xl font-bold text-zinc-900 dark:text-white mb-2">{title}</Text>
+              <Text className="text-zinc-600 dark:text-zinc-400 mb-6">Enter your Master Password to proceed.</Text>
               
               <View className="mb-6 relative justify-center">
                 <TextInput
-                  className="bg-zinc-950 border border-zinc-800 text-white p-4 rounded-xl pr-12"
+                  className="bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white p-4 rounded-xl pr-12"
                   placeholder="Master Password"
-                  placeholderTextColor="#52525B"
+                  placeholderTextColor="#9CA3AF"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={setPassword}
@@ -124,16 +124,16 @@ export function ActionAuthModal({ visible, title = 'Authenticate', forcePassword
                 </TouchableOpacity>
               </View>
               
-              <View className="flex-row gap-4 space-x-4">
+              <View className="flex-row gap-4">
                 <TouchableOpacity 
-                  className="flex-1 bg-zinc-800 p-4 rounded-xl items-center"
+                  className="flex-1 bg-zinc-100 dark:bg-zinc-800 p-4 rounded-xl items-center"
                   onPress={onCancel}
                   disabled={isProcessing}
                 >
-                  <Text className="text-white font-semibold">Cancel</Text>
+                  <Text className="text-zinc-900 dark:text-white font-semibold">Cancel</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  className={`flex-1 bg-blue-600 p-4 rounded-xl items-center justify-center flex-row ${(!password || isProcessing) ? 'opacity-50' : ''}`}
+                  className={`flex-1 bg-brand p-4 rounded-xl items-center justify-center flex-row ${(!password || isProcessing) ? 'opacity-50' : ''}`}
                   onPress={handlePasswordSubmit}
                   disabled={!password || isProcessing}
                 >

@@ -7,6 +7,9 @@ import { GlobalAlert } from '../components/GlobalAlert';
 import { useVaultStore } from '../store/useVaultStore';
 import { vaultExists } from '../services/storageService';
 import * as ScreenCapture from 'expo-screen-capture';
+import { useColorScheme } from 'nativewind';
+import { useThemeStore } from '../store/useThemeStore';
+import { ThemeProvider, DarkTheme, DefaultTheme } from 'expo-router';
 import '../global.css';
 
 export default function RootLayout() {
@@ -14,12 +17,20 @@ export default function RootLayout() {
   const segments = useSegments();
   const { isUnlocked, lockVault } = useAuthStore();
   const { clearVault } = useVaultStore();
+  const { theme, loadTheme } = useThemeStore();
+  const { colorScheme, setColorScheme } = useColorScheme();
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     // Prevent screen capture for security
-    ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    // ScreenCapture.preventScreenCaptureAsync().catch(() => {});
+    ScreenCapture.allowScreenCaptureAsync().catch(() => {});
+    loadTheme();
   }, []);
+
+  useEffect(() => {
+    setColorScheme(theme);
+  }, [theme]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
@@ -59,16 +70,16 @@ export default function RootLayout() {
 
   if (!isInitialized) {
     return (
-      <View className="flex-1 bg-zinc-950 items-center justify-center">
+      <View className="flex-1 bg-white dark:bg-zinc-950 items-center justify-center">
         <Text className="text-zinc-500">Loading Vault...</Text>
       </View>
     );
   }
 
   return (
-    <>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#09090b' } }} />
+    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colorScheme === 'dark' ? '#09090b' : '#f4f4f5' } }} />
       <GlobalAlert />
-    </>
+    </ThemeProvider>
   );
 }
